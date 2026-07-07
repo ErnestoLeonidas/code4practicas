@@ -7,11 +7,12 @@ export default defineConfig({
   base: '/',
   plugins: [vue()],
   server: {
-    port: 5173,
-    // En desarrollo, /api se redirige al servidor PHP local.
+    // Puerto de desarrollo del frontend (poco común para evitar choques).
+    port: 51731,
+    // En desarrollo, /api se redirige al servidor PHP local (puerto backend definido abajo).
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://127.0.0.1:18081',
         changeOrigin: true,
       },
     },
