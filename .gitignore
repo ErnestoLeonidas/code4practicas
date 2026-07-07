@@ -1,0 +1,29 @@
+# Secretos y configuración local (nunca commitear)
+api/config.php
+
+# Base de datos local SQLite
+api/data/*.sqlite
+api/data/*.sqlite3
+api/data/*.db
+
+# Dependencias PHP (en producción se sube vendor/ ya instalado)
+# En desarrollo local no lo versionamos.
+api/vendor/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Logs
+api/logs/*.log
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editores
+.idea/
+.vscode/
+*.swp

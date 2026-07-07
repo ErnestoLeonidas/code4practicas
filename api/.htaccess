@@ -1,0 +1,31 @@
+# .htaccess de la API (carpeta /public_html/api/)
+# Todas las peticiones se enrutan al front controller index.php.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Base de la carpeta api/ dentro del dominio.
+    RewriteBase /api/
+
+    # No reescribir archivos o directorios que existen físicamente.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Todo lo demás va a index.php (el front controller lee REQUEST_URI).
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# No listar directorios.
+Options -Indexes
+
+# Proteger archivos sensibles.
+<FilesMatch "^(config\.php|config\.example\.php|\.env)$">
+    Require all denied
+</FilesMatch>
+
+# Cabeceras de seguridad básicas (se endurecen más en v0.9.0).
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>

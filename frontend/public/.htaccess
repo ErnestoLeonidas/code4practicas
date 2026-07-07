@@ -1,0 +1,24 @@
+# SPA fallback (se copia a dist/ y va a /public_html/ en el hosting).
+# Sirve archivos reales; el resto lo maneja index.html (Vue Router en history mode).
+# NO afecta a /api (la carpeta api/ tiene su propio .htaccess y front controller).
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # No tocar la API: la resuelve /public_html/api/.htaccess.
+    RewriteRule ^api(/|$) - [L]
+
+    # Servir archivos y directorios existentes tal cual.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Todo lo demás -> index.html (rutas del SPA).
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
