@@ -7,9 +7,13 @@
  */
 
 use App\Config;
+use App\Http\HttpException;
 use App\Http\Response;
 use App\Http\Router;
+use App\Services\Auth;
 use App\Controllers\HealthController;
+use App\Controllers\AuthController;
+use App\Middleware\AuthMiddleware;
 
 require __DIR__ . '/src/autoload.php';
 
@@ -40,6 +44,9 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
+// Arranca la sesión (cookie pp_sesion) antes de resolver la ruta.
+Auth::iniciar();
+
 // Ruta solicitada (sin querystring).
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
@@ -48,9 +55,16 @@ $router = new Router();
 // --- Rutas ---
 $router->get('/api/health', [HealthController::class, 'index']);
 
-// Manejo global de excepciones no controladas.
+$router->post('/api/auth/login',  [AuthController::class, 'login']);
+$router->post('/api/auth/logout', [AuthController::class, 'logout']);
+$router->get('/api/auth/me',      [AuthController::class, 'me'], [ [AuthMiddleware::class, 'handle'] ]);
+
+// Manejo global de excepciones.
 try {
     $router->dispatch($method, $path);
+} catch (HttpException $e) {
+    // Errores de aplicación (validación, auth, permisos): forma { error: { code, message } }.
+    Response::error($e->codigo, $e->getMessage(), $e->status);
 } catch (\Throwable $e) {
     error_log('[API] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
     $message = $isDev ? $e->getMessage() : 'Error interno del servidor.';

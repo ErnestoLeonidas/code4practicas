@@ -13,8 +13,9 @@ return [
     // Entorno: 'dev' o 'prod'. En 'prod' se ocultan errores PHP.
     'env' => 'dev',
 
-    // URL base del frontend (para CORS y enlaces en correos). En dev es el server de Vite.
-    'app_url' => 'http://localhost:5173',
+    // URL base del frontend (para CORS y enlaces en correos).
+    // En dev es el server de Vite (puerto 51731); el backend PHP corre en 18081.
+    'app_url' => 'http://localhost:51731',
 
     /**
      * Base de datos.

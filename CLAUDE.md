@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-This is a **greenfield repository**: only `ROADMAP.md` exists — no source code, no commits yet. `ROADMAP.md` is the authoritative spec and build plan; read it before writing anything. Do not invent architecture that contradicts it.
+**Built through v0.1.0** (see `CHANGELOG.md`): full-stack scaffolding (`api/` + `frontend/`), SQLite-backed schema, and authentication (login/logout/me with PHP sessions, route guard). Not yet committed to git. `ROADMAP.md` is the authoritative spec and build plan; read the relevant version section before building the next one. Do not invent architecture that contradicts it.
 
 The app is a **web system for tracking professional internships ("prácticas profesionales") at Duoc UC**. The internship-supervising teacher (`docente`) manages students, companies, workplace supervisors, a 12-week follow-up checklist, and three graded deliverables. Students have no login in v1.0.0.
+
+**Dev ports (configured in `frontend/vite.config.js` + `api/config.php`):** Vite dev server on **51731**, PHP API on **18081**; Vite proxies `/api` → `127.0.0.1:18081`. `app_url` (CORS origin) must match the Vite port.
 
 ## Working method (non-negotiable)
 
@@ -59,11 +61,18 @@ The full target schema and per-version task lists are in `ROADMAP.md` §4 and th
 
 ## Commands
 
-The scaffolding does not exist yet — these apply once v0.0.1 creates `frontend/` and `api/`:
+Local dev needs two processes running at once (from the repo root):
 
-- Frontend dev server (proxies `/api`): `cd frontend && npm run dev`
-- Frontend production build (output `dist/`): `cd frontend && npm run build`
-- Backend: run under Apache with `mod_php`/PHP-FPM, or locally via `php -S localhost:8000 -t api` (route through `api/index.php`).
-- Migrations: execute `api/migrations/*.sql` in order in phpMyAdmin / MySQL client (no migration runner on shared hosting).
+- **Backend API** (PHP built-in server, dev only): `php -S 127.0.0.1:18081 api/router.php` — `api/router.php` funnels every request to the front controller.
+- **Frontend** dev server (proxies `/api` → PHP): `npm run dev --prefix frontend` (serves on `:51731`).
+- **Frontend build** (output `dist/`, includes `public/.htaccess` SPA fallback): `npm run build --prefix frontend`.
+- **Migrations** (idempotent, picks the variant for the configured driver): `php api/migrate.php`. Files are `migrations/NNN_*.{mysql,sqlite}.sql`; on shared hosting run the `*.mysql.sql` files manually in phpMyAdmin instead.
+- **Seed admin** (prints a generated password once; `--force` regenerates): `php api/seed_admin.php [correo]`. Default correo `admin@profesor.duoc.cl`.
 
-Health check contract for v0.0.1: `GET /api/health` → `{"status":"ok","version":"0.0.1"}`.
+First-time local setup: `cp api/config.example.php api/config.php` (driver defaults to `sqlite`), then `php api/migrate.php` and `php api/seed_admin.php`.
+
+Contracts: `GET /api/health` → `{"status":"ok","version":"..."}`. Auth (v0.1.0): `POST /api/auth/login {correo,password}`, `POST /api/auth/logout`, `GET /api/auth/me` (session cookie `pp_sesion`, HttpOnly + SameSite=Lax). Error codes seen so far: `datos_invalidos`, `dominio_no_institucional`, `credenciales_invalidas`, `demasiados_intentos` (rate limit: 5 fails / 15 min per correo), `no_autenticado`, `sin_permiso`.
+
+## Backend request lifecycle
+
+`api/index.php` (front controller): loads `config.php` → sets CORS from `app_url` → handles OPTIONS → `Auth::iniciar()` (starts the session) → registers routes on the `Router` → `dispatch()`. Routes take an optional 3rd arg: a list of middleware (`[[AuthMiddleware::class,'handle']]`). Middleware run before the handler and **throw `App\Http\HttpException`** to abort; the front controller catches it and renders `{error:{code,message}}` with the right status. Controllers may either throw `HttpException` or call `Response::error(...)` directly (both used in the codebase). Session-backed auth lives in `App\Services\Auth` (lazy-loads the active user per request); never trust the client for role/identity.

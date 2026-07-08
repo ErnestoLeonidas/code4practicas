@@ -3,6 +3,24 @@
 Todos los cambios relevantes de este proyecto se documentan aquí.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
+## [0.1.0] — 2026-07-06
+
+### Añadido
+- Autenticación por sesión: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`. Cookie `pp_sesion` (`HttpOnly` + `SameSite=Lax`, `Secure` solo en producción).
+- Login valida dominio institucional (`@duoc.cl`, `@duocuc.cl`, `@profesor.duoc.cl`, configurable) y verifica la contraseña con `password_verify`.
+- Rate limiting de login: máx. 5 intentos fallidos / 15 min por correo (tabla `pp_login_intentos`, migración `002`). El umbral se calcula en PHP para ser portable SQLite/MySQL.
+- Router con soporte de **middleware** por ruta; `AuthMiddleware` (401 `no_autenticado`) y `RoleMiddleware::permitir(...)` (403 `sin_permiso`, listo para v0.2.0).
+- `App\Http\HttpException` + captura centralizada en el front controller → errores `{ "error": { "code", "message" } }`.
+- Servicio `Password` (generación segura con CSPRNG, `hash`/`verify`), servicio `Auth` (sesión), modelos `Usuario` y `LoginIntento`, helper `Request` (JSON/IP).
+- `api/seed_admin.php`: crea el usuario `admin` con contraseña generada e impresa una sola vez (`--force` la regenera); `debe_cambiar_password=1`.
+- Frontend: store Pinia `auth`, vista `Login`, guard de router (`requiereAuth` → redirige a `/login` con `redirect`), navbar con usuario/rol y botón **Salir**, saludo en `Home`.
+
+### Cambios
+- `app_url` (origen CORS) apunta al dev server de Vite (`http://localhost:51731`); backend PHP en dev corre en `18081`.
+
+### Verificado
+- Integración end-to-end a través del proxy de Vite: la sesión (`pp_sesion`) sobrevive el salto navegador→Vite→PHP; `me` responde 200 con sesión y 401 sin ella; login rechaza dominios no institucionales (422) y aplica rate limit (429).
+
 ## [0.0.1] — 2026-07-06
 
 ### Añadido
