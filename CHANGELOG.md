@@ -3,6 +3,25 @@
 Todos los cambios relevantes de este proyecto se documentan aquí.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
+## [0.2.0] — 2026-07-08
+
+### Añadido
+- CRUD de usuarios (solo `admin`): `GET/POST/PUT/DELETE /api/usuarios` con paginación y filtros server-side (`?page=&per_page=&q=&rol=&activo=`) y borrado lógico (`activo=0`).
+- Al crear un usuario, el sistema genera una contraseña segura (14 caracteres), guarda solo el hash y marca `debe_cambiar_password=1`. La contraseña se devuelve una única vez (`password_generada`) y, si SMTP está configurado, se envía por correo (`correo_enviado`).
+- `POST /api/usuarios/{id}/regenerar-password`: el admin regenera la contraseña de un usuario (invalida la anterior y fuerza cambio).
+- `POST /api/auth/cambiar-password` (autenticado): verifica la contraseña actual, exige mínimo 8 caracteres y limpia `debe_cambiar_password`.
+- Guardas de integridad: un admin no puede desactivarse a sí mismo (`no_puede_desactivarse`) ni dejar el sistema sin administradores activos (`ultimo_admin`).
+- `Mailer` (stub para v0.3.0): envía credenciales por PHPMailer si hay SMTP y la clase está disponible; en dev devuelve `false` sin lanzar.
+- `Support/Validaciones` (email + dominio institucional), reutilizado por `AuthController` y `UsuarioController`.
+- Frontend: vista `Usuarios` (tabla con badges de rol/estado, buscador y filtros, paginación, crear/editar en modal, mostrar la contraseña generada una sola vez con botón copiar, regenerar, activar/desactivar), vista `CambiarPassword`, store Pinia `usuarios`, getter `esAdmin` y acción `cambiarPassword` en el store `auth`.
+- Guard de router: fuerza la pantalla de cambio de contraseña cuando `debe_cambiar_password` está activo y restringe `/usuarios` a administradores; enlace "Usuarios" en la navbar solo para admin.
+
+### Nuevos códigos de error
+`correo_duplicado`, `rol_invalido`, `no_encontrado`, `no_puede_desactivarse`, `ultimo_admin`, `password_actual_incorrecta`, `password_debil`.
+
+### Verificado
+- Integración end-to-end por el proxy de Vite: el admin crea un docente, el docente entra con la contraseña generada, es forzado a cambiarla (`debe_cambiar_password` pasa de `true` a `false`) y la contraseña anterior queda invalidada (401); el rol `docente` recibe 403 en los endpoints de administración.
+
 ## [0.1.0] — 2026-07-06
 
 ### Añadido

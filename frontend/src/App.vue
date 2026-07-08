@@ -24,6 +24,24 @@ async function salir() {
         </div>
 
         <div v-if="auth.autenticado" class="flex items-center gap-3">
+          <nav class="flex items-center gap-3 text-sm">
+            <RouterLink
+              to="/"
+              class="font-medium text-slate-600 hover:text-slate-900"
+              exact-active-class="text-slate-900"
+            >
+              Inicio
+            </RouterLink>
+            <RouterLink
+              v-if="auth.esAdmin"
+              to="/usuarios"
+              class="font-medium text-slate-600 hover:text-slate-900"
+              active-class="text-slate-900"
+            >
+              Usuarios
+            </RouterLink>
+          </nav>
+          <span class="hidden sm:inline text-slate-300">|</span>
           <span class="text-sm font-medium text-slate-900">{{ auth.nombreCompleto }}</span>
           <span class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
             {{ auth.usuario.rol }}

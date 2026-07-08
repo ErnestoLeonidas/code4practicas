@@ -2,13 +2,13 @@
 
 namespace App\Controllers;
 
-use App\Config;
 use App\Http\Request;
 use App\Http\Response;
 use App\Models\LoginIntento;
 use App\Models\Usuario;
 use App\Services\Auth;
 use App\Services\Password;
+use App\Support\Validaciones;
 
 /**
  * Autenticación: login (con correo institucional), logout y sesión actual.
@@ -20,6 +20,9 @@ final class AuthController
 
     /** Ventana (en minutos) sobre la que se cuentan los intentos fallidos. */
     private const VENTANA_MIN = 15;
+
+    /** Longitud mínima de una contraseña elegida por el usuario. */
+    private const MIN_PASSWORD = 8;
 
     /**
      * POST /api/auth/login
@@ -37,7 +40,7 @@ final class AuthController
         }
 
         // 2) Correo válido y de dominio institucional permitido.
-        if (!filter_var($correo, FILTER_VALIDATE_EMAIL) || !$this->dominioPermitido($correo)) {
+        if (!Validaciones::emailValido($correo) || !Validaciones::dominioPermitido($correo)) {
             Response::error('dominio_no_institucional', 'Debes usar un correo institucional Duoc válido.', 422);
             return;
         }
@@ -87,18 +90,32 @@ final class AuthController
     }
 
     /**
-     * ¿El dominio del correo (tras la @) está en dominios_permitidos?
+     * POST /api/auth/cambiar-password — protegido por AuthMiddleware.
+     *
+     * Cambia la contraseña del usuario en sesión: verifica la actual, valida la
+     * longitud de la nueva y limpia el flag debe_cambiar_password.
      */
-    private function dominioPermitido(string $correo): bool
+    public function cambiarPassword(array $params): void
     {
-        $pos = strrpos($correo, '@');
-        if ($pos === false) {
-            return false;
+        // El AuthMiddleware ya garantizó que hay un usuario autenticado.
+        $usuario = Auth::usuario();
+
+        $cuerpo         = Request::json();
+        $passwordActual = (string) ($cuerpo['password_actual'] ?? '');
+        $passwordNueva  = (string) ($cuerpo['password_nueva'] ?? '');
+
+        if (!Password::verify($passwordActual, (string) $usuario['password_hash'])) {
+            Response::error('password_actual_incorrecta', 'La contraseña actual no es correcta.', 422);
+            return;
         }
 
-        $dominio    = strtolower(substr($correo, $pos + 1));
-        $permitidos = Config::get('dominios_permitidos', []);
+        if (mb_strlen($passwordNueva) < self::MIN_PASSWORD) {
+            Response::error('password_debil', 'La nueva contraseña debe tener al menos ' . self::MIN_PASSWORD . ' caracteres.', 422);
+            return;
+        }
 
-        return in_array($dominio, $permitidos, true);
+        Usuario::actualizarPassword((int) $usuario['id'], Password::hash($passwordNueva), 0);
+
+        Response::json(['ok' => true]);
     }
 }

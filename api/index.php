@@ -13,7 +13,9 @@ use App\Http\Router;
 use App\Services\Auth;
 use App\Controllers\HealthController;
 use App\Controllers\AuthController;
+use App\Controllers\UsuarioController;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\RoleMiddleware;
 
 require __DIR__ . '/src/autoload.php';
 
@@ -58,6 +60,15 @@ $router->get('/api/health', [HealthController::class, 'index']);
 $router->post('/api/auth/login',  [AuthController::class, 'login']);
 $router->post('/api/auth/logout', [AuthController::class, 'logout']);
 $router->get('/api/auth/me',      [AuthController::class, 'me'], [ [AuthMiddleware::class, 'handle'] ]);
+$router->post('/api/auth/cambiar-password', [AuthController::class, 'cambiarPassword'], [ [AuthMiddleware::class, 'handle'] ]);
+
+// Gestión de usuarios (solo admin).
+$soloAdmin = [ RoleMiddleware::permitir('admin') ];
+$router->get('/api/usuarios',                          [UsuarioController::class, 'index'],   $soloAdmin);
+$router->post('/api/usuarios',                         [UsuarioController::class, 'store'],   $soloAdmin);
+$router->put('/api/usuarios/{id}',                     [UsuarioController::class, 'update'],  $soloAdmin);
+$router->delete('/api/usuarios/{id}',                  [UsuarioController::class, 'destroy'], $soloAdmin);
+$router->post('/api/usuarios/{id}/regenerar-password', [UsuarioController::class, 'regenerarPassword'], $soloAdmin);
 
 // Manejo global de excepciones.
 try {

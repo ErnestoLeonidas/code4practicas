@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-**Built through v0.1.0** (see `CHANGELOG.md`): full-stack scaffolding (`api/` + `frontend/`), SQLite-backed schema, and authentication (login/logout/me with PHP sessions, route guard). Not yet committed to git. `ROADMAP.md` is the authoritative spec and build plan; read the relevant version section before building the next one. Do not invent architecture that contradicts it.
+**Built through v0.2.0** (see `CHANGELOG.md`): full-stack scaffolding (`api/` + `frontend/`), SQLite-backed schema, authentication (login/logout/me with PHP sessions + route guard), and admin user management (CRUD `/api/usuarios`, system-generated passwords, forced first-login password change, role-restricted routes). Not yet committed to git. `ROADMAP.md` is the authoritative spec and build plan; read the relevant version section before building the next one. Do not invent architecture that contradicts it.
 
 The app is a **web system for tracking professional internships ("prácticas profesionales") at Duoc UC**. The internship-supervising teacher (`docente`) manages students, companies, workplace supervisors, a 12-week follow-up checklist, and three graded deliverables. Students have no login in v1.0.0.
 
@@ -71,7 +71,9 @@ Local dev needs two processes running at once (from the repo root):
 
 First-time local setup: `cp api/config.example.php api/config.php` (driver defaults to `sqlite`), then `php api/migrate.php` and `php api/seed_admin.php`.
 
-Contracts: `GET /api/health` → `{"status":"ok","version":"..."}`. Auth (v0.1.0): `POST /api/auth/login {correo,password}`, `POST /api/auth/logout`, `GET /api/auth/me` (session cookie `pp_sesion`, HttpOnly + SameSite=Lax). Error codes seen so far: `datos_invalidos`, `dominio_no_institucional`, `credenciales_invalidas`, `demasiados_intentos` (rate limit: 5 fails / 15 min per correo), `no_autenticado`, `sin_permiso`.
+Contracts: `GET /api/health`. Auth: `POST /api/auth/login {correo,password}`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/cambiar-password {password_actual,password_nueva}` (session cookie `pp_sesion`, HttpOnly + SameSite=Lax). Admin-only (RoleMiddleware `permitir('admin')`): `GET/POST/PUT/DELETE /api/usuarios` (paginated `?page=&per_page=&q=&rol=&activo=`, logical delete), `POST /api/usuarios/{id}/regenerar-password`. Passwords are always system-generated (`Password::generar`), returned once as `password_generada`; email delivery via `Services/Mailer` (stub until v0.3.0, returns false without SMTP). Error codes so far: `datos_invalidos`, `dominio_no_institucional`, `credenciales_invalidas`, `demasiados_intentos`, `no_autenticado`, `sin_permiso`, `correo_duplicado`, `rol_invalido`, `no_encontrado`, `no_puede_desactivarse`, `ultimo_admin`, `password_actual_incorrecta`, `password_debil`.
+
+Guard invariants: never leave zero active admins and no self-deactivation (enforced in `UsuarioController` via `Usuario::contarAdminsActivos`). Domain/email validation lives in `Support/Validaciones` (reused by auth + usuarios). SQLite has no `ON UPDATE`, so writes set `actualizado_en` explicitly.
 
 ## Backend request lifecycle
 

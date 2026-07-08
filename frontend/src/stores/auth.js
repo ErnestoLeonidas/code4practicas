@@ -11,6 +11,7 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     autenticado: (state) => state.usuario !== null,
+    esAdmin: (state) => state.usuario?.rol === 'admin',
     debeCambiarPassword: (state) => state.usuario?.debe_cambiar_password === true,
     nombreCompleto: (state) =>
       state.usuario ? `${state.usuario.nombre} ${state.usuario.apellido}` : '',
@@ -49,6 +50,24 @@ export const useAuthStore = defineStore('auth', {
         // Ignoramos errores de logout; limpiamos la sesión local igualmente.
       }
       this.usuario = null
+    },
+    // Cambio de contraseña (voluntario u obligatorio). Devuelve true si tuvo éxito.
+    async cambiarPassword(actual, nueva) {
+      this.cargando = true
+      this.error = null
+      try {
+        await api.post('/auth/cambiar-password', {
+          password_actual: actual,
+          password_nueva: nueva,
+        })
+        if (this.usuario) this.usuario.debe_cambiar_password = false
+        return true
+      } catch (e) {
+        this.error = e.message
+        return false
+      } finally {
+        this.cargando = false
+      }
     },
   },
 })
