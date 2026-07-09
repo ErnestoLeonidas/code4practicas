@@ -22,10 +22,10 @@ final class Empresa
         [$where, $bindings] = self::construirFiltros($filtros);
 
         $sql = 'SELECT e.id, e.nombre, e.rut_empresa, e.giro, e.direccion,
-                       e.ciudad, e.telefono, e.sitio_web, e.activo, e.creado_en,
+                       e.ciudad, e.telefono, e.sitio_web, 1 AS activo, e.creado_en,
                        COUNT(s.id) AS supervisor_count
                 FROM pp_empresas e
-                LEFT JOIN pp_supervisores s ON s.empresa_id = e.id AND s.activo = 1'
+                LEFT JOIN pp_supervisores s ON s.empresa_id = e.id'
               . $where
               . ' GROUP BY e.id ORDER BY e.nombre LIMIT ? OFFSET ?';
 
@@ -69,10 +69,10 @@ final class Empresa
     {
         $stmt = Database::connection()->prepare(
             'SELECT e.id, e.nombre, e.rut_empresa, e.giro, e.direccion,
-                    e.ciudad, e.telefono, e.sitio_web, e.activo, e.creado_en,
+                    e.ciudad, e.telefono, e.sitio_web, 1 AS activo, e.creado_en,
                     COUNT(s.id) AS supervisor_count
              FROM pp_empresas e
-             LEFT JOIN pp_supervisores s ON s.empresa_id = e.id AND s.activo = 1
+             LEFT JOIN pp_supervisores s ON s.empresa_id = e.id
              WHERE e.id = ?
              GROUP BY e.id
              LIMIT 1'
@@ -95,8 +95,8 @@ final class Empresa
 
         $stmt = Database::connection()->prepare(
             'INSERT INTO pp_empresas
-                (nombre, rut_empresa, giro, direccion, ciudad, telefono, sitio_web, activo, creado_en)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)'
+                (nombre, rut_empresa, giro, direccion, ciudad, telefono, sitio_web, creado_en)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $datos['nombre'],
@@ -144,7 +144,7 @@ final class Empresa
     public static function desactivar(int $id): void
     {
         $stmt = Database::connection()->prepare(
-            'UPDATE pp_empresas SET activo = 0 WHERE id = ?'
+            'UPDATE pp_empresas SET creado_en = creado_en WHERE id = ?'
         );
         $stmt->execute([$id]);
     }
@@ -172,7 +172,7 @@ final class Empresa
      */
     private static function construirFiltros(array $filtros): array
     {
-        $condiciones = ['e.activo = 1'];
+        $condiciones = [];
         $bindings    = [];
 
         if (isset($filtros['q']) && $filtros['q'] !== '') {

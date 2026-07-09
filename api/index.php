@@ -16,6 +16,7 @@ use App\Controllers\EmpresaController;
 use App\Controllers\EstudianteController;
 use App\Controllers\HealthController;
 use App\Controllers\AuthController;
+use App\Controllers\PracticaController;
 use App\Controllers\RecuperarController;
 use App\Controllers\SupervisorController;
 use App\Controllers\UsuarioController;
@@ -106,6 +107,13 @@ $router->get('/api/empresas/{id}/supervisores',  [SupervisorController::class, '
 $router->post('/api/empresas/{id}/supervisores', [SupervisorController::class, 'store'],   $soloAdmin);
 $router->put('/api/supervisores/{id}',           [SupervisorController::class, 'update'],  $soloAdmin);
 $router->delete('/api/supervisores/{id}',        [SupervisorController::class, 'destroy'], $soloAdmin);
+
+// Prácticas y estados.
+$router->get('/api/practicas',           [PracticaController::class, 'index'],   $adminODocente);
+$router->post('/api/practicas',          [PracticaController::class, 'store'],   $adminODocente);
+$router->get('/api/practicas/{id}',      [PracticaController::class, 'show'],    $adminODocente);
+$router->put('/api/practicas/{id}',      [PracticaController::class, 'update'],  $adminODocente);
+$router->patch('/api/practicas/{id}/estado', [PracticaController::class, 'estado'], $adminODocente);
 
 // Manejo global de excepciones.
 try {

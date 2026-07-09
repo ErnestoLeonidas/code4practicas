@@ -1,21 +1,23 @@
 <script setup>
-// Layout base con navbar de sesión (v0.1.0).
-import { useRouter } from 'vue-router'
-import { useAuthStore } from './stores/auth'
+  // Layout base con navbar de sesión (v0.1.0).
+  import { useRouter } from "vue-router";
+  import { useAuthStore } from "./stores/auth";
 
-const auth = useAuthStore()
-const router = useRouter()
+  const auth = useAuthStore();
+  const router = useRouter();
 
-async function salir() {
-  await auth.logout()
-  router.push('/login')
-}
+  async function salir() {
+    await auth.logout();
+    router.push("/login");
+  }
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-50 text-slate-800">
     <header class="bg-white border-b border-slate-200">
-      <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+      <div
+        class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4"
+      >
         <div>
           <h1 class="text-lg font-semibold text-slate-900">
             Seguimiento de Prácticas Profesionales
@@ -47,6 +49,13 @@ async function salir() {
               Empresas
             </RouterLink>
             <RouterLink
+              to="/practicas"
+              class="font-medium text-slate-600 hover:text-slate-900"
+              active-class="text-slate-900"
+            >
+              Prácticas
+            </RouterLink>
+            <RouterLink
               v-if="auth.esAdmin"
               to="/usuarios"
               class="font-medium text-slate-600 hover:text-slate-900"
@@ -56,8 +65,12 @@ async function salir() {
             </RouterLink>
           </nav>
           <span class="hidden sm:inline text-slate-300">|</span>
-          <span class="text-sm font-medium text-slate-900">{{ auth.nombreCompleto }}</span>
-          <span class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+          <span class="text-sm font-medium text-slate-900">{{
+            auth.nombreCompleto
+          }}</span>
+          <span
+            class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded"
+          >
             {{ auth.usuario.rol }}
           </span>
           <button

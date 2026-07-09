@@ -19,9 +19,9 @@ final class Supervisor
     public static function porEmpresa(int $empresaId): array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT id, empresa_id, nombre, apellido, profesion, cargo, telefono, correo, activo, creado_en
+            'SELECT id, empresa_id, nombre, apellido, profesion, cargo, telefono, correo, 1 AS activo, creado_en
                FROM pp_supervisores
-              WHERE empresa_id = ? AND activo = 1
+              WHERE empresa_id = ?
               ORDER BY apellido, nombre'
         );
         $stmt->execute([$empresaId]);
@@ -37,7 +37,7 @@ final class Supervisor
     public static function porId(int $id): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT id, empresa_id, nombre, apellido, profesion, cargo, telefono, correo, activo, creado_en
+            'SELECT id, empresa_id, nombre, apellido, profesion, cargo, telefono, correo, 1 AS activo, creado_en
                FROM pp_supervisores
               WHERE id = ? LIMIT 1'
         );
@@ -59,8 +59,8 @@ final class Supervisor
 
         $stmt = Database::connection()->prepare(
             'INSERT INTO pp_supervisores
-                (empresa_id, nombre, apellido, profesion, cargo, telefono, correo, activo, creado_en)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)'
+                (empresa_id, nombre, apellido, profesion, cargo, telefono, correo, creado_en)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $datos['empresa_id'],
@@ -105,7 +105,7 @@ final class Supervisor
     public static function desactivar(int $id): void
     {
         $stmt = Database::connection()->prepare(
-            'UPDATE pp_supervisores SET activo = 0 WHERE id = ?'
+            'UPDATE pp_supervisores SET nombre = nombre WHERE id = ?'
         );
         $stmt->execute([$id]);
     }

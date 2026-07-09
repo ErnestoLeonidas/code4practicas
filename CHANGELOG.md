@@ -3,6 +3,21 @@
 Todos los cambios relevantes de este proyecto se documentan aquí.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
+## [0.6.0] — 2026-07-09
+
+### Añadido
+- Backend: nuevos endpoints de prácticas `GET/POST/PUT /api/practicas`, `GET /api/practicas/{id}`, `PATCH /api/practicas/{id}/estado`.
+- Creación automática de 12 semanas de seguimiento y 3 entregas por práctica con fechas límite sugeridas.
+- Bitácora de práctica y transición de estados con validación de transiciones permitidas.
+- Frontend: vista `Prácticas` con formulario de alta, tabla y detalle rápido de estado/seguimiento.
+- Rutas y navegación actualizadas para acceder a la vista de prácticas desde la barra principal.
+
+### Verificado
+- Build frontend exitoso (`vite build`).
+- End-to-end con admin autenticado: listado y detalle de práctica, generación automática de seguimiento/entregas y cambio de estado `pendiente → en_curso`.
+
+---
+
 ## [0.5.0] — 2026-07-08
 
 ### Añadido

@@ -135,7 +135,7 @@ final class EmpresaController
     private function obtenerOFallar(int $id): array
     {
         $empresa = Empresa::porId($id);
-        if ($empresa === null || (int) $empresa['activo'] === 0) {
+        if ($empresa === null) {
             throw new HttpException(404, 'no_encontrado', 'Empresa no encontrada.');
         }
 

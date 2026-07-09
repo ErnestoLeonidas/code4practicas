@@ -92,7 +92,7 @@ final class SupervisorController
     private function obtenerEmpresaOFallar(int $id): array
     {
         $empresa = Empresa::porId($id);
-        if ($empresa === null || (int) $empresa['activo'] === 0) {
+        if ($empresa === null) {
             throw new HttpException(404, 'no_encontrado', 'Empresa no encontrada.');
         }
 
@@ -107,7 +107,7 @@ final class SupervisorController
     private function obtenerSupervisorOFallar(int $id): array
     {
         $supervisor = Supervisor::porId($id);
-        if ($supervisor === null || (int) $supervisor['activo'] === 0) {
+        if ($supervisor === null) {
             throw new HttpException(404, 'no_encontrado', 'Supervisor no encontrado.');
         }
 
