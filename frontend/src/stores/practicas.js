@@ -69,5 +69,29 @@ export const usePracticasStore = defineStore('practicas', {
       await this.cargar()
       return data
     },
+    async guardarSeguimiento(id, semana, datos) {
+      const data = await api.put(`/practicas/${id}/seguimiento/${semana}`, datos)
+      if (this.practicaActual?.id === id) {
+        const seguimiento = Array.isArray(this.practicaActual?.seguimiento) ? [...this.practicaActual.seguimiento] : []
+        const index = seguimiento.findIndex((item) => Number(item.semana) === Number(semana))
+        if (index >= 0) {
+          seguimiento[index] = { ...seguimiento[index], ...data.semana }
+        }
+        this.practicaActual = { ...this.practicaActual, seguimiento, resumen: data.resumen }
+      }
+      return data
+    },
+    async guardarEntrega(id, tipo, datos) {
+      const data = await api.put(`/practicas/${id}/entregas/${tipo}`, datos)
+      if (this.practicaActual?.id === id) {
+        const entregas = Array.isArray(this.practicaActual?.entregas) ? [...this.practicaActual.entregas] : []
+        const index = entregas.findIndex((item) => item.tipo === tipo)
+        if (index >= 0) {
+          entregas[index] = { ...entregas[index], ...data.entrega }
+        }
+        this.practicaActual = { ...this.practicaActual, entregas, resumen_entregas: data.resumen_entregas }
+      }
+      return data
+    },
   },
 })

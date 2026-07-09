@@ -156,7 +156,157 @@ final class Practica
              ORDER BY semana ASC'
         );
         $stmt->execute([$id]);
-        return $stmt->fetchAll();
+        $filas = $stmt->fetchAll();
+
+        foreach ($filas as &$fila) {
+            $fila['puntaje'] = self::puntajeSemana($fila);
+            $fila['porcentaje'] = self::porcentajeSemana($fila);
+            $fila['riesgo'] = self::riesgoSemana($fila);
+        }
+        unset($fila);
+
+        return $filas;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function resumenSeguimiento(int $id): array
+    {
+        $semanas = self::seguimientoPorPractica($id);
+        if ($semanas === []) {
+            return [
+                'cumplimiento_global' => 0,
+                'semanas_en_riesgo_alto' => 0,
+                'uno_a_uno_realizadas' => 0,
+                'retroalimentaciones_entregadas' => 0,
+                'semanas_registradas' => 0,
+            ];
+        }
+
+        $registradas = count(array_filter($semanas, static function (array $semana): bool {
+            return !empty($semana['fecha_registro'])
+                || (int) ($semana['reunion_1a1'] ?? 0) > 0
+                || (int) ($semana['orientaciones_claras'] ?? 0) > 0
+                || (int) ($semana['retroalimentacion'] ?? 0) > 0
+                || (int) ($semana['evidencia_registrada'] ?? 0) > 0
+                || (int) ($semana['disponibilidad_comunicada'] ?? 0) > 0
+                || (int) ($semana['ajuste_individual'] ?? 0) > 0
+                || (int) ($semana['reflexion_guiada'] ?? 0) > 0
+                || (int) ($semana['etica_valores'] ?? 0) > 0
+                || !empty(trim((string) ($semana['observaciones'] ?? '')));
+        }));
+
+        $cumplimientoGlobal = $registradas === 0 ? 0 : round(array_sum(array_column($semanas, 'porcentaje')) / $registradas, 1);
+
+        return [
+            'cumplimiento_global' => $cumplimientoGlobal,
+            'semanas_en_riesgo_alto' => count(array_filter($semanas, static function (array $semana): bool {
+                return ($semana['riesgo'] ?? 'alto') === 'alto';
+            })),
+            'uno_a_uno_realizadas' => count(array_filter($semanas, static function (array $semana): bool {
+                return (int) ($semana['reunion_1a1'] ?? 0) === 1;
+            })),
+            'retroalimentaciones_entregadas' => count(array_filter($semanas, static function (array $semana): bool {
+                return (int) ($semana['retroalimentacion'] ?? 0) === 1;
+            })),
+            'semanas_registradas' => $registradas,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $datos
+     * @return array<string, mixed>
+     */
+    public static function actualizarSeguimientoSemana(int $id, int $semana, array $datos, ?int $usuarioId): array
+    {
+        $campos = [
+            'reunion_1a1' => isset($datos['reunion_1a1']) ? (int) $datos['reunion_1a1'] : null,
+            'orientaciones_claras' => isset($datos['orientaciones_claras']) ? (int) $datos['orientaciones_claras'] : null,
+            'retroalimentacion' => isset($datos['retroalimentacion']) ? (int) $datos['retroalimentacion'] : null,
+            'evidencia_registrada' => isset($datos['evidencia_registrada']) ? (int) $datos['evidencia_registrada'] : null,
+            'disponibilidad_comunicada' => isset($datos['disponibilidad_comunicada']) ? (int) $datos['disponibilidad_comunicada'] : null,
+            'ajuste_individual' => isset($datos['ajuste_individual']) ? (int) $datos['ajuste_individual'] : null,
+            'reflexion_guiada' => isset($datos['reflexion_guiada']) ? (int) $datos['reflexion_guiada'] : null,
+            'etica_valores' => isset($datos['etica_valores']) ? (int) $datos['etica_valores'] : null,
+            'observaciones' => array_key_exists('observaciones', $datos) ? trim((string) $datos['observaciones']) : null,
+            'fecha_registro' => array_key_exists('fecha_registro', $datos) ? trim((string) $datos['fecha_registro']) : null,
+        ];
+
+        $sets = [];
+        $bindings = [];
+        foreach ($campos as $campo => $valor) {
+            if ($valor === null) {
+                continue;
+            }
+            $sets[] = $campo . ' = ?';
+            $bindings[] = $valor;
+        }
+
+        if ($sets === []) {
+            return self::seguimientoPorPractica($id)[0] ?? [];
+        }
+
+        $bindings[] = $id;
+        $bindings[] = $semana;
+        $stmt = Database::connection()->prepare(
+            'UPDATE pp_seguimiento_semanal SET ' . implode(', ', $sets) . ' WHERE practica_id = ? AND semana = ?'
+        );
+        $stmt->execute($bindings);
+
+        self::registrarBitacora($id, $usuarioId, 'seguimiento_actualizado', 'Se actualizó la semana ' . $semana . '.');
+        return self::semanaPorPractica($id, $semana);
+    }
+
+    /**
+     * @param array<string, mixed> $fila
+     */
+    private static function puntajeSemana(array $fila): int
+    {
+        $campos = ['reunion_1a1', 'orientaciones_claras', 'retroalimentacion', 'evidencia_registrada', 'disponibilidad_comunicada', 'ajuste_individual', 'reflexion_guiada', 'etica_valores'];
+        $puntaje = 0;
+        foreach ($campos as $campo) {
+            $puntaje += (int) ($fila[$campo] ?? 0);
+        }
+        return $puntaje;
+    }
+
+    /**
+     * @param array<string, mixed> $fila
+     */
+    private static function porcentajeSemana(array $fila): int
+    {
+        $puntaje = self::puntajeSemana($fila);
+        return $puntaje === 0 ? 0 : (int) round(($puntaje / 8) * 100);
+    }
+
+    /**
+     * @param array<string, mixed> $fila
+     */
+    private static function riesgoSemana(array $fila): string
+    {
+        $porcentaje = self::porcentajeSemana($fila);
+        if ($porcentaje >= 85) {
+            return 'bajo';
+        }
+        if ($porcentaje >= 60) {
+            return 'medio';
+        }
+        return 'alto';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function semanaPorPractica(int $id, int $semana): array
+    {
+        $semanas = self::seguimientoPorPractica($id);
+        foreach ($semanas as $fila) {
+            if ((int) ($fila['semana'] ?? 0) === $semana) {
+                return $fila;
+            }
+        }
+        return [];
     }
 
     /**
@@ -172,6 +322,105 @@ final class Practica
         );
         $stmt->execute([$id]);
         return $stmt->fetchAll();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function resumenEntregas(int $id): array
+    {
+        $entregas = self::entregasPorPractica($id);
+        $notas = [];
+        $atrasadas = 0;
+        $hoy = new DateTimeImmutable('today');
+
+        foreach ($entregas as $entrega) {
+            if ($entrega['nota'] !== null && $entrega['nota'] !== '') {
+                $notas[$entrega['tipo']] = (float) $entrega['nota'];
+            }
+            if ((int) ($entrega['entregado'] ?? 0) !== 1 && !empty($entrega['fecha_limite'])) {
+                $fechaLimite = new DateTimeImmutable((string) $entrega['fecha_limite']);
+                if ($hoy > $fechaLimite) {
+                    $atrasadas++;
+                }
+            }
+        }
+
+        $notaFinal = null;
+        if (isset($notas['avance_1'], $notas['avance_2'], $notas['informe_final'])) {
+            $notaFinal = round(($notas['avance_1'] * 0.25) + ($notas['avance_2'] * 0.25) + ($notas['informe_final'] * 0.5), 1);
+        }
+
+        return [
+            'nota_final_ponderada' => $notaFinal,
+            'entregas_atrasadas' => $atrasadas,
+            'sugerencia_nota' => $atrasadas > 0 ? 1.0 : null,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $datos
+     * @return array<string, mixed>
+     */
+    public static function actualizarEntrega(int $id, string $tipo, array $datos, ?int $usuarioId): array
+    {
+        $sets = [];
+        $bindings = [];
+
+        if (array_key_exists('entregado', $datos)) {
+            $sets[] = 'entregado = ?';
+            $bindings[] = (int) $datos['entregado'];
+        }
+
+        if (array_key_exists('fecha_entrega', $datos)) {
+            $fechaEntrega = trim((string) $datos['fecha_entrega']);
+            $sets[] = 'fecha_entrega = ?';
+            $bindings[] = $fechaEntrega === '' ? null : $fechaEntrega;
+        }
+
+        if (array_key_exists('nota', $datos)) {
+            $nota = trim((string) $datos['nota']);
+            $sets[] = 'nota = ?';
+            $bindings[] = $nota === '' ? null : self::normalizarNota($nota);
+        }
+
+        if (array_key_exists('retroalimentacion', $datos)) {
+            $sets[] = 'retroalimentacion = ?';
+            $bindings[] = trim((string) $datos['retroalimentacion']);
+        }
+
+        if ($sets === []) {
+            return self::entregaPorTipo($id, $tipo);
+        }
+
+        $sets[] = 'actualizado_en = ?';
+        $bindings[] = date('Y-m-d H:i:s');
+        $bindings[] = $id;
+        $bindings[] = $tipo;
+
+        $stmt = Database::connection()->prepare(
+            'UPDATE pp_entregas SET ' . implode(', ', $sets) . ' WHERE practica_id = ? AND tipo = ?'
+        );
+        $stmt->execute($bindings);
+
+        self::registrarBitacora($id, $usuarioId, 'entrega_actualizada', 'Se actualizó la entrega ' . $tipo . '.');
+        return self::entregaPorTipo($id, $tipo);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function entregaPorTipo(int $id, string $tipo): array
+    {
+        $stmt = Database::connection()->prepare(
+            'SELECT id, practica_id, tipo, fecha_limite, fecha_entrega, entregado, nota, retroalimentacion, creado_en, actualizado_en
+             FROM pp_entregas
+             WHERE practica_id = ? AND tipo = ?
+             LIMIT 1'
+        );
+        $stmt->execute([$id, $tipo]);
+        $fila = $stmt->fetch();
+        return is_array($fila) ? $fila : [];
     }
 
     /**
@@ -281,6 +530,13 @@ final class Practica
         $stmtEntregas->execute([$practicaId, 'avance_1', $fechaAvance1, $ahora, $ahora]);
         $stmtEntregas->execute([$practicaId, 'avance_2', $fechaAvance2, $ahora, $ahora]);
         $stmtEntregas->execute([$practicaId, 'informe_final', $fechaInforme, $ahora, $ahora]);
+    }
+
+    private static function normalizarNota(string $valor): string
+    {
+        $nota = (float) $valor;
+        $nota = max(1.0, min(7.0, $nota));
+        return number_format($nota, 1, '.', '');
     }
 
     private static function registrarBitacora(int $practicaId, ?int $usuarioId, string $evento, string $detalle): void

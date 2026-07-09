@@ -3,6 +3,20 @@
 Todos los cambios relevantes de este proyecto se documentan aquí.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
+## [0.8.0] — 2026-07-09
+
+### Añadido
+- Backend: endpoints `GET /api/practicas/{id}/seguimiento`, `PUT /api/practicas/{id}/seguimiento/{semana}` para registrar el checklist semanal con cálculo de puntaje, porcentaje y riesgo por semana, además de KPIs resumen por práctica.
+- Backend: endpoint `PUT /api/practicas/{id}/entregas/{tipo}` para registrar estado de entrega, fecha de entrega, nota (1.0–7.0) y retroalimentación; el resumen calcula la nota final ponderada 25/25/50 y la sugerencia de atraso.
+- Al guardar la nota del informe final, el estado de la práctica avanza automáticamente a `aprobada` o `reprobada` cuando corresponde.
+- Frontend: panel de seguimiento semanal y sección de entregas/nota en el detalle de práctica, con guardado inmediato desde la interfaz.
+
+### Verificado
+- Validación end-to-end con autenticación de admin: `GET /api/practicas/{id}/seguimiento` devolvió semanas con porcentaje/riesgo; `PUT /api/practicas/{id}/seguimiento/{semana}` actualizó la semana y los KPIs; `PUT /api/practicas/{id}/entregas/{tipo}` registró entrega y resumen de notas.
+- Build frontend exitoso (`vite build`).
+
+---
+
 ## [0.6.0] — 2026-07-09
 
 ### Añadido

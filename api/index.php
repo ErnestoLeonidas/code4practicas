@@ -114,6 +114,9 @@ $router->post('/api/practicas',          [PracticaController::class, 'store'],  
 $router->get('/api/practicas/{id}',      [PracticaController::class, 'show'],    $adminODocente);
 $router->put('/api/practicas/{id}',      [PracticaController::class, 'update'],  $adminODocente);
 $router->patch('/api/practicas/{id}/estado', [PracticaController::class, 'estado'], $adminODocente);
+$router->get('/api/practicas/{id}/seguimiento', [PracticaController::class, 'seguimiento'], $adminODocente);
+$router->put('/api/practicas/{id}/seguimiento/{semana}', [PracticaController::class, 'actualizarSeguimiento'], $adminODocente);
+$router->put('/api/practicas/{id}/entregas/{tipo}', [PracticaController::class, 'actualizarEntrega'], $adminODocente);
 
 // Manejo global de excepciones.
 try {

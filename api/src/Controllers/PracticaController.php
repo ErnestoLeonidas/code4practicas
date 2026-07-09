@@ -94,7 +94,9 @@ final class PracticaController
             'practica' => [
                 ...self::publico($practica),
                 'seguimiento' => Practica::seguimientoPorPractica($id),
+                'resumen' => Practica::resumenSeguimiento($id),
                 'entregas' => Practica::entregasPorPractica($id),
+                'resumen_entregas' => Practica::resumenEntregas($id),
                 'bitacora' => Practica::bitacoraPorPractica($id),
             ],
         ]);
@@ -144,6 +146,81 @@ final class PracticaController
         $usuario = Auth::usuario();
         Practica::actualizarEstado($id, $siguiente, $usuario ? (int) $usuario['id'] : null);
         Response::json(['practica' => self::publico(Practica::porId($id))]);
+    }
+
+    /**
+     * GET /api/practicas/{id}/seguimiento
+     */
+    public function seguimiento(array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        $practica = $this->obtenerOFallar($id);
+        $this->verificarAcceso($practica);
+
+        Response::json([
+            'semanas' => Practica::seguimientoPorPractica($id),
+            'resumen' => Practica::resumenSeguimiento($id),
+        ]);
+    }
+
+    /**
+     * PUT /api/practicas/{id}/seguimiento/{semana}
+     */
+    public function actualizarSeguimiento(array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        $practica = $this->obtenerOFallar($id);
+        $this->verificarAcceso($practica);
+
+        $semana = (int) ($params['semana'] ?? 0);
+        if ($semana < 1 || $semana > 12) {
+            throw new HttpException(422, 'datos_invalidos', 'La semana debe estar entre 1 y 12.');
+        }
+
+        $cuerpo = Request::json();
+        $usuario = Auth::usuario();
+        $semanaActualizada = Practica::actualizarSeguimientoSemana($id, $semana, $cuerpo, $usuario ? (int) $usuario['id'] : null);
+
+        Response::json([
+            'semana' => $semanaActualizada,
+            'resumen' => Practica::resumenSeguimiento($id),
+        ]);
+    }
+
+    /**
+     * PUT /api/practicas/{id}/entregas/{tipo}
+     */
+    public function actualizarEntrega(array $params): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        $practica = $this->obtenerOFallar($id);
+        $this->verificarAcceso($practica);
+
+        $tipo = trim((string) ($params['tipo'] ?? ''));
+        if (!in_array($tipo, ['avance_1', 'avance_2', 'informe_final'], true)) {
+            throw new HttpException(422, 'datos_invalidos', 'El tipo de entrega es inválido.');
+        }
+
+        $cuerpo = Request::json();
+        if (isset($cuerpo['nota']) && $cuerpo['nota'] !== '') {
+            $nota = (float) $cuerpo['nota'];
+            if ($nota < 1.0 || $nota > 7.0) {
+                throw new HttpException(422, 'datos_invalidos', 'La nota debe estar entre 1.0 y 7.0.');
+            }
+        }
+
+        $usuario = Auth::usuario();
+        $entrega = Practica::actualizarEntrega($id, $tipo, $cuerpo, $usuario ? (int) $usuario['id'] : null);
+
+        if ($tipo === 'informe_final' && array_key_exists('nota', $cuerpo) && $cuerpo['nota'] !== '' && (string) $practica['estado'] === 'informe_final') {
+            $estadoSiguiente = ((float) $cuerpo['nota']) >= 4.0 ? 'aprobada' : 'reprobada';
+            Practica::actualizarEstado($id, $estadoSiguiente, $usuario ? (int) $usuario['id'] : null);
+        }
+
+        Response::json([
+            'entrega' => $entrega,
+            'resumen_entregas' => Practica::resumenEntregas($id),
+        ]);
     }
 
     private function obtenerOFallar(int $id): array

@@ -23,6 +23,21 @@
   const guardando = ref(false);
   const errorForm = ref(null);
   const mostrandoDetalle = ref(false);
+  const guardandoSeguimiento = ref(false);
+  const errorSeguimiento = ref(null);
+  const guardandoEntrega = ref(false);
+  const errorEntrega = ref(null);
+
+  const itemsChecklist = [
+    { key: "reunion_1a1", label: "1:1 realizada" },
+    { key: "orientaciones_claras", label: "Orientaciones claras" },
+    { key: "retroalimentacion", label: "Retroalimentación entregada" },
+    { key: "evidencia_registrada", label: "Evidencia registrada" },
+    { key: "disponibilidad_comunicada", label: "Disponibilidad comunicada" },
+    { key: "ajuste_individual", label: "Ajuste individual" },
+    { key: "reflexion_guiada", label: "Reflexión guiada" },
+    { key: "etica_valores", label: "Ética y valores" },
+  ];
 
   const totalPaginas = computed(() =>
     Math.max(1, Math.ceil(practicas.total / practicas.perPage)),
@@ -133,6 +148,129 @@
       abandonada: "bg-gray-100 text-gray-700",
     };
     return mapa[estado] || "bg-slate-100 text-slate-700";
+  }
+
+  function riesgoClase(riesgo) {
+    const mapa = {
+      bajo: "bg-emerald-100 text-emerald-700",
+      medio: "bg-amber-100 text-amber-700",
+      alto: "bg-red-100 text-red-700",
+    };
+    return mapa[riesgo] || "bg-slate-100 text-slate-700";
+  }
+
+  function porcentajeClase(porcentaje) {
+    if (porcentaje >= 85) return "text-emerald-700";
+    if (porcentaje >= 60) return "text-amber-700";
+    return "text-red-700";
+  }
+
+  function toggleItem(semana, key, checked) {
+    semana[key] = checked ? 1 : 0;
+  }
+
+  async function guardarSeguimiento(semana) {
+    if (!practicas.practicaActual?.id) return;
+    guardandoSeguimiento.value = true;
+    errorSeguimiento.value = null;
+    try {
+      const payload = {
+        reunion_1a1: Number(semana.reunion_1a1 || 0),
+        orientaciones_claras: Number(semana.orientaciones_claras || 0),
+        retroalimentacion: Number(semana.retroalimentacion || 0),
+        evidencia_registrada: Number(semana.evidencia_registrada || 0),
+        disponibilidad_comunicada: Number(
+          semana.disponibilidad_comunicada || 0,
+        ),
+        ajuste_individual: Number(semana.ajuste_individual || 0),
+        reflexion_guiada: Number(semana.reflexion_guiada || 0),
+        etica_valores: Number(semana.etica_valores || 0),
+        observaciones: semana.observaciones || "",
+        fecha_registro:
+          semana.fecha_registro || new Date().toISOString().slice(0, 10),
+      };
+      const data = await practicas.guardarSeguimiento(
+        practicas.practicaActual.id,
+        semana.semana,
+        payload,
+      );
+      if (data.semana) {
+        const seguimiento = Array.isArray(practicas.practicaActual?.seguimiento)
+          ? [...practicas.practicaActual.seguimiento]
+          : [];
+        const index = seguimiento.findIndex(
+          (item) => Number(item.semana) === Number(semana.semana),
+        );
+        if (index >= 0) {
+          seguimiento[index] = { ...seguimiento[index], ...data.semana };
+        }
+        practicas.practicaActual = {
+          ...practicas.practicaActual,
+          seguimiento,
+          resumen: data.resumen,
+        };
+      }
+    } catch (e) {
+      errorSeguimiento.value = e.message;
+    } finally {
+      guardandoSeguimiento.value = false;
+    }
+  }
+
+  async function guardarEntrega(entrega) {
+    if (!practicas.practicaActual?.id) return;
+    guardandoEntrega.value = true;
+    errorEntrega.value = null;
+    try {
+      const payload = {
+        entregado: Number(entrega.entregado || 0),
+        fecha_entrega: entrega.fecha_entrega || "",
+        nota:
+          entrega.nota === "" || entrega.nota === null
+            ? ""
+            : Number(entrega.nota),
+        retroalimentacion: entrega.retroalimentacion || "",
+      };
+      const data = await practicas.guardarEntrega(
+        practicas.practicaActual.id,
+        entrega.tipo,
+        payload,
+      );
+      if (data.entrega) {
+        const entregas = Array.isArray(practicas.practicaActual?.entregas)
+          ? [...practicas.practicaActual.entregas]
+          : [];
+        const index = entregas.findIndex((item) => item.tipo === entrega.tipo);
+        if (index >= 0) {
+          entregas[index] = { ...entregas[index], ...data.entrega };
+        }
+        practicas.practicaActual = {
+          ...practicas.practicaActual,
+          entregas,
+          resumen_entregas: data.resumen_entregas,
+        };
+      }
+    } catch (e) {
+      errorEntrega.value = e.message;
+    } finally {
+      guardandoEntrega.value = false;
+    }
+  }
+
+  function etiquetaEntrega(tipo) {
+    const mapa = {
+      avance_1: "Avance 1",
+      avance_2: "Avance 2",
+      informe_final: "Informe final",
+    };
+    return mapa[tipo] || tipo;
+  }
+
+  function estadoEntrega(entrega) {
+    if (Number(entrega.entregado) === 1) return "Entregado";
+    if (entrega.fecha_limite && new Date(entrega.fecha_limite) < new Date())
+      return "Atrasado";
+    return "Pendiente";
   }
 </script>
 
@@ -335,6 +473,231 @@
             >
               {{ estado }}
             </button>
+          </div>
+
+          <div
+            v-if="practicas.practicaActual?.seguimiento?.length"
+            class="mt-5 border-t border-slate-200 pt-4"
+          >
+            <div
+              v-if="errorSeguimiento"
+              class="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"
+            >
+              {{ errorSeguimiento }}
+            </div>
+            <div class="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">
+                  Seguimiento semanal
+                </h4>
+                <p class="text-xs text-slate-500">
+                  Checklists de 12 semanas con semáforo de riesgo
+                </p>
+              </div>
+            </div>
+            <div class="mb-3 grid gap-2 sm:grid-cols-3">
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p
+                  class="text-[11px] font-medium uppercase tracking-wide text-slate-500"
+                >
+                  Cumplimiento
+                </p>
+                <p class="text-lg font-semibold text-slate-900">
+                  {{
+                    practicas.practicaActual?.resumen?.cumplimiento_global ?? 0
+                  }}%
+                </p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p
+                  class="text-[11px] font-medium uppercase tracking-wide text-slate-500"
+                >
+                  Riesgo alto
+                </p>
+                <p class="text-lg font-semibold text-slate-900">
+                  {{
+                    practicas.practicaActual?.resumen?.semanas_en_riesgo_alto ??
+                    0
+                  }}
+                </p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p
+                  class="text-[11px] font-medium uppercase tracking-wide text-slate-500"
+                >
+                  1:1 / retro
+                </p>
+                <p class="text-sm font-semibold text-slate-900">
+                  {{
+                    practicas.practicaActual?.resumen?.uno_a_uno_realizadas ?? 0
+                  }}
+                  /
+                  {{
+                    practicas.practicaActual?.resumen
+                      ?.retroalimentaciones_entregadas ?? 0
+                  }}
+                </p>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div
+                v-for="semana in practicas.practicaActual?.seguimiento || []"
+                :key="semana.id || semana.semana"
+                class="rounded-lg border border-slate-200 p-3"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-900">
+                      Semana {{ semana.semana }}
+                    </p>
+                    <p class="text-xs text-slate-500">{{ semana.foco }}</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                      :class="porcentajeClase(semana.porcentaje)"
+                    >
+                      {{ semana.porcentaje ?? 0 }}%
+                    </span>
+                    <span
+                      class="rounded-full px-2 py-1 text-xs font-semibold"
+                      :class="riesgoClase(semana.riesgo)"
+                    >
+                      {{ semana.riesgo || "alto" }}
+                    </span>
+                    <button
+                      class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                      :disabled="guardandoSeguimiento"
+                      @click="guardarSeguimiento(semana)"
+                    >
+                      {{ guardandoSeguimiento ? "Guardando…" : "Guardar" }}
+                    </button>
+                  </div>
+                </div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                  <label
+                    v-for="item in itemsChecklist"
+                    :key="item.key"
+                    class="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-600"
+                  >
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-slate-300"
+                      :checked="Number(semana[item.key]) === 1"
+                      @change="
+                        toggleItem(semana, item.key, $event.target.checked)
+                      "
+                    />
+                    <span>{{ item.label }}</span>
+                  </label>
+                </div>
+                <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    v-model="semana.fecha_registro"
+                    type="date"
+                    class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+                  />
+                  <textarea
+                    v-model="semana.observaciones"
+                    rows="2"
+                    placeholder="Observaciones"
+                    class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="practicas.practicaActual?.entregas?.length"
+            class="mt-5 border-t border-slate-200 pt-4"
+          >
+            <div
+              v-if="errorEntrega"
+              class="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"
+            >
+              {{ errorEntrega }}
+            </div>
+            <div class="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">
+                  Entregas y notas
+                </h4>
+                <p class="text-xs text-slate-500">
+                  Controla fechas, estado y nota final ponderada
+                </p>
+              </div>
+              <div
+                class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+              >
+                Nota final:
+                <span class="font-semibold">{{
+                  practicas.practicaActual?.resumen_entregas
+                    ?.nota_final_ponderada ?? "—"
+                }}</span>
+              </div>
+            </div>
+            <div class="grid gap-3 md:grid-cols-3">
+              <div
+                v-for="entrega in practicas.practicaActual?.entregas || []"
+                :key="entrega.tipo"
+                class="rounded-lg border border-slate-200 p-3"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <p class="text-sm font-semibold text-slate-900">
+                    {{ etiquetaEntrega(entrega.tipo) }}
+                  </p>
+                  <span
+                    class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                  >
+                    {{ estadoEntrega(entrega) }}
+                  </span>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">
+                  Fecha límite: {{ entrega.fecha_limite || "—" }}
+                </p>
+                <div class="mt-3 space-y-2">
+                  <label class="flex items-center gap-2 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-slate-300"
+                      :checked="Number(entrega.entregado) === 1"
+                      @change="
+                        entrega.entregado = $event.target.checked ? 1 : 0
+                      "
+                    />
+                    Entregado
+                  </label>
+                  <input
+                    v-model="entrega.fecha_entrega"
+                    type="date"
+                    class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+                  />
+                  <input
+                    v-model="entrega.nota"
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    max="7"
+                    placeholder="Nota"
+                    class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+                  />
+                  <textarea
+                    v-model="entrega.retroalimentacion"
+                    rows="2"
+                    placeholder="Retroalimentación"
+                    class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+                  />
+                  <button
+                    class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                    :disabled="guardandoEntrega"
+                    @click="guardarEntrega(entrega)"
+                  >
+                    {{ guardandoEntrega ? "Guardando…" : "Guardar entrega" }}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
