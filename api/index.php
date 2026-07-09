@@ -11,8 +11,11 @@ use App\Http\HttpException;
 use App\Http\Response;
 use App\Http\Router;
 use App\Services\Auth;
+use App\Controllers\CarreraController;
+use App\Controllers\EstudianteController;
 use App\Controllers\HealthController;
 use App\Controllers\AuthController;
+use App\Controllers\RecuperarController;
 use App\Controllers\UsuarioController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\RoleMiddleware;
@@ -62,13 +65,32 @@ $router->post('/api/auth/logout', [AuthController::class, 'logout']);
 $router->get('/api/auth/me',      [AuthController::class, 'me'], [ [AuthMiddleware::class, 'handle'] ]);
 $router->post('/api/auth/cambiar-password', [AuthController::class, 'cambiarPassword'], [ [AuthMiddleware::class, 'handle'] ]);
 
+// Recuperación de contraseña (rutas públicas, sin middleware).
+$router->post('/api/auth/recuperar',   [RecuperarController::class, 'recuperar']);
+$router->post('/api/auth/restablecer', [RecuperarController::class, 'restablecer']);
+
 // Gestión de usuarios (solo admin).
-$soloAdmin = [ RoleMiddleware::permitir('admin') ];
+$soloAdmin     = [ RoleMiddleware::permitir('admin') ];
+$adminODocente = [ RoleMiddleware::permitir('admin', 'docente') ];
+
 $router->get('/api/usuarios',                          [UsuarioController::class, 'index'],   $soloAdmin);
 $router->post('/api/usuarios',                         [UsuarioController::class, 'store'],   $soloAdmin);
 $router->put('/api/usuarios/{id}',                     [UsuarioController::class, 'update'],  $soloAdmin);
 $router->delete('/api/usuarios/{id}',                  [UsuarioController::class, 'destroy'], $soloAdmin);
 $router->post('/api/usuarios/{id}/regenerar-password', [UsuarioController::class, 'regenerarPassword'], $soloAdmin);
+
+// Carreras (solo admin).
+$router->get('/api/carreras',         [CarreraController::class, 'index'],   $soloAdmin);
+$router->post('/api/carreras',        [CarreraController::class, 'store'],   $soloAdmin);
+$router->put('/api/carreras/{id}',    [CarreraController::class, 'update'],  $soloAdmin);
+$router->delete('/api/carreras/{id}', [CarreraController::class, 'destroy'], $soloAdmin);
+
+// Estudiantes.
+$router->get('/api/estudiantes',          [EstudianteController::class, 'index'],   $adminODocente);
+$router->post('/api/estudiantes',         [EstudianteController::class, 'store'],   $soloAdmin);
+$router->get('/api/estudiantes/{id}',     [EstudianteController::class, 'show'],    $adminODocente);
+$router->put('/api/estudiantes/{id}',     [EstudianteController::class, 'update'],  $adminODocente);
+$router->delete('/api/estudiantes/{id}',  [EstudianteController::class, 'destroy'], $soloAdmin);
 
 // Manejo global de excepciones.
 try {

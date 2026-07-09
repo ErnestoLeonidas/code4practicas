@@ -3,6 +3,57 @@
 Todos los cambios relevantes de este proyecto se documentan aquí.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
+## [0.4.0] — 2026-07-08
+
+### Añadido
+- CRUD `pp_carreras` (solo admin): `GET/POST/PUT/DELETE /api/carreras`. Borrado lógico; rechazo 409 `carrera_en_uso` si hay estudiantes activos asignados. Sin paginación (listado completo de activas).
+- CRUD `pp_estudiantes`: `GET/POST/PUT/DELETE /api/estudiantes` con filtros server-side (`?page=&per_page=&q=&semestre=&carrera_id=&docente_id=`) y borrado lógico.
+- Validaciones backend de estudiante: RUT chileno con dígito verificador (algoritmo DV, `Validaciones::rutValido()`), RUT único (409 `rut_duplicado`), formato de semestre `AAAA-[12]` (422 `semestre_invalido`), carrera activa existente (422 `carrera_invalida`), docente activo con rol correcto (422 `docente_invalido`).
+- Restricción de rol en estudiantes: `docente` solo ve/edita sus propios estudiantes (filtra `docente_id` automáticamente); `admin` ve todos. El docente no puede crear ni desactivar.
+- `GET /api/estudiantes` retorna `carrera_nombre` y `docente_nombre` (via JOIN).
+- `api/seed_carreras.php` — idempotente; inserta 13 carreras de 4 escuelas Duoc UC (Informática, Administración, Salud, Ingeniería).
+- Modelos `Carrera` y `Estudiante` con JOINs, filtros, paginación (LIMIT/OFFSET como `PARAM_INT`), `actualizado_en` explícito (compatibilidad SQLite).
+- Frontend: store `carreras`, store `estudiantes` (paginado + filtros), vista `Estudiantes` (tabla con filtros semestre/carrera/búsqueda, paginación, acciones diferenciadas por rol), componente `EstudianteModal` (RUT readonly en edición, select de carrera y docente).
+- Enlace "Estudiantes" en navbar (visible para admin y docente).
+
+### Nuevos códigos de error
+`rut_invalido`, `rut_duplicado`, `semestre_invalido`, `carrera_invalida`, `docente_invalido`, `carrera_en_uso`.
+
+### Verificado
+- 13 carreras sembradas; seed idempotente (segunda ejecución: 0 insertadas).
+- Estudiante creado con RUT válido, carrera y semestre correctos → 201 con `carrera_nombre` en respuesta.
+- RUT inválido (DV incorrecto) → 422 `rut_invalido`; RUT duplicado → 409 `rut_duplicado`; semestre `2026-3` → 422 `semestre_invalido`.
+- GET con filtro `?semestre=2026-1` retorna solo los estudiantes del semestre.
+- DELETE carrera con estudiantes activos → 409 `carrera_en_uso`.
+- Docente ve solo sus propios estudiantes (filtro automático por `docente_id`).
+- Build frontend: 43 módulos transformados, sin warnings.
+
+---
+
+## [0.3.0] — 2026-07-08
+
+### Añadido
+- `POST /api/auth/recuperar`: genera token aleatorio (`bin2hex(random_bytes(32))`), guarda solo el hash HMAC-SHA256 en `pp_tokens_recuperacion` con TTL de 60 min, envía enlace por correo. Respuesta siempre genérica (no revela si el correo existe en el sistema).
+- `POST /api/auth/restablecer`: valida token no expirado y no usado, actualiza la contraseña del usuario, invalida todos los tokens del usuario y cierra la sesión activa si corresponde; retorna 422 `token_invalido` si el token es inválido, usado o expirado.
+- Modelo `Token` (`src/Models/Token.php`): `crear`, `porHash`, `marcarUsado`, `invalidarPorUsuario`.
+- Servicio `Mailer` completo con PHPMailer: reemplaza el stub de v0.2.0; dos métodos `enviarCredenciales` y `enviarRecuperacion` con plantillas HTML en español (inline). Clave SMTP `user`/`pass` (renombradas respecto al stub). Retorna `false` sin lanzar si no hay SMTP configurado.
+- `api/config.example.php`: nuevas claves `app_secret` (HMAC de tokens) y sección `smtp` completa con `host/port/user/pass/from_email/from_name/secure`.
+- Frontend: vista `RecuperarPassword` (`/recuperar-password`) — formulario de correo, respuesta siempre positiva en pantalla (no revela existencia), link "Volver al login".
+- Frontend: vista `RestablecerPassword` (`/restablecer?token=...`) — detecta token ausente antes de mostrar el formulario, validaciones cliente (≥8 chars, coincidencia), maneja `token_invalido` con link a recuperar.
+- Link "¿Olvidaste tu contraseña?" en `Login.vue` (link discreto debajo del botón).
+- Guard del router: regla 2 (`debeCambiarPassword`) exenta a rutas con `meta.publico` para no romper el flujo de recuperación.
+
+### Nuevos códigos de error
+`token_invalido`.
+
+### Verificado
+- Correo existente → 200 genérico; correo inexistente → mismo 200 (no filtra); formato inválido → 422 `datos_invalidos`.
+- Flujo completo: token insertado directo en BD → `restablecer` → login con nueva contraseña → 200 con `debe_cambiar_password: false`.
+- Token ya usado → 422 `token_invalido`; token inexistente → 422 `token_invalido`.
+- Build frontend: 39 módulos transformados, sin advertencias.
+
+---
+
 ## [0.2.0] — 2026-07-08
 
 ### Añadido

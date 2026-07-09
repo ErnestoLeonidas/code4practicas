@@ -68,6 +68,15 @@ async function enviar() {
           {{ auth.cargando ? 'Entrando…' : 'Entrar' }}
         </button>
       </form>
+
+      <p class="mt-4 text-center text-sm text-slate-500">
+        <router-link
+          to="/recuperar-password"
+          class="text-slate-500 underline underline-offset-2 hover:text-slate-700"
+        >
+          ¿Olvidaste tu contraseña?
+        </router-link>
+      </p>
     </div>
   </section>
 </template>

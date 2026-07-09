@@ -33,6 +33,13 @@ async function salir() {
               Inicio
             </RouterLink>
             <RouterLink
+              to="/estudiantes"
+              class="font-medium text-slate-600 hover:text-slate-900"
+              active-class="text-slate-900"
+            >
+              Estudiantes
+            </RouterLink>
+            <RouterLink
               v-if="auth.esAdmin"
               to="/usuarios"
               class="font-medium text-slate-600 hover:text-slate-900"

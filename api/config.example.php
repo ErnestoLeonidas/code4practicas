@@ -42,14 +42,19 @@ return [
     // Dominios de correo institucionales permitidos para login (v0.1.0+).
     'dominios_permitidos' => ['duoc.cl', 'duocuc.cl', 'profesor.duoc.cl'],
 
+    // Clave secreta para HMAC de tokens de recuperación (v0.3.0+).
+    // Cámbiala por un valor aleatorio fuerte en producción.
+    'app_secret' => 'cambia-esto-en-produccion',
+
     // Configuración SMTP para PHPMailer (v0.3.0+). Rellenar cuando corresponda.
+    // Las claves 'user' y 'pass' reemplazan los nombres anteriores 'username'/'password'.
     'smtp' => [
-        'host'       => '',
+        'host'       => '',          // p.ej. smtp.gmail.com o smtp.mailtrap.io
         'port'       => 587,
-        'username'   => '',
-        'password'   => '',
-        'from_email' => 'no-reply@example.com',
-        'from_name'  => 'Seguimiento de Prácticas',
-        'secure'     => 'tls', // 'tls' | 'ssl' | ''
+        'user'       => '',          // usuario SMTP
+        'pass'       => '',          // contraseña SMTP
+        'from_email' => 'no-reply@tudominio.cl',
+        'from_name'  => 'Prácticas Duoc UC',
+        'secure'     => 'tls',       // 'tls' | 'ssl' | ''
     ],
 ];
