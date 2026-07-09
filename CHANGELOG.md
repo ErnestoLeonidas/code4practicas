@@ -3,6 +3,26 @@
 Todos los cambios relevantes de este proyecto se documentan aquí.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
+## [0.5.0] — 2026-07-08
+
+### Añadido
+- Migración `003`: añade columna `activo` a `pp_empresas` y `pp_supervisores` (para mantener la convención de borrado lógico — las tablas no la incluían en `001_init`).
+- CRUD `pp_empresas` (admin escribe, admin+docente lee): `GET/POST/PUT/DELETE /api/empresas`. Filtros por nombre/RUT y ciudad; paginado. Validaciones: nombre requerido, `rut_empresa` con dígito verificador chileno, `sitio_web` con `FILTER_VALIDATE_URL`. Borrado lógico; 409 `empresa_en_uso` si tiene prácticas activas.
+- CRUD `pp_supervisores` anidado: `GET /api/empresas/{id}/supervisores`, `POST /api/empresas/{id}/supervisores`, `PUT /api/supervisores/{id}`, `DELETE /api/supervisores/{id}`. Correo validado con `Validaciones::emailValido()`.
+- `GET /api/empresas/{id}` retorna la empresa con `supervisores: []` embebidos y `supervisor_count`.
+- Modelos `Empresa` y `Supervisor` con `tienePracticasActivas()` para la guarda de integridad.
+- Frontend: store `empresas` (paginado + filtros, acciones de empresa y supervisor), vista `Empresas` (tabla con badge de supervisores, filtros, paginación; panel de detalle modal con lista de supervisores y enlace `mailto:` en correo), componentes `EmpresaModal` y `SupervisorModal`.
+- Enlace "Empresas" en navbar (visible para admin y docente).
+
+### Nuevos códigos de error
+`url_invalida`, `correo_invalido`, `empresa_en_uso`.
+
+### Verificado
+- Login admin → 200. POST empresa con RUT y URL válidos → 201. URL inválida → 422. POST supervisor con correo válido → 201. GET empresa/{id} incluye `supervisores`. DELETE supervisor → 200. PUT empresa → 200. DELETE empresa sin prácticas → 200.
+- Build frontend: 47 módulos transformados, sin warnings.
+
+---
+
 ## [0.4.0] — 2026-07-08
 
 ### Añadido

@@ -12,10 +12,12 @@ use App\Http\Response;
 use App\Http\Router;
 use App\Services\Auth;
 use App\Controllers\CarreraController;
+use App\Controllers\EmpresaController;
 use App\Controllers\EstudianteController;
 use App\Controllers\HealthController;
 use App\Controllers\AuthController;
 use App\Controllers\RecuperarController;
+use App\Controllers\SupervisorController;
 use App\Controllers\UsuarioController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\RoleMiddleware;
@@ -91,6 +93,19 @@ $router->post('/api/estudiantes',         [EstudianteController::class, 'store']
 $router->get('/api/estudiantes/{id}',     [EstudianteController::class, 'show'],    $adminODocente);
 $router->put('/api/estudiantes/{id}',     [EstudianteController::class, 'update'],  $adminODocente);
 $router->delete('/api/estudiantes/{id}',  [EstudianteController::class, 'destroy'], $soloAdmin);
+
+// Empresas (GET: admin+docente; escritura: solo admin).
+$router->get('/api/empresas',          [EmpresaController::class, 'index'],   $adminODocente);
+$router->post('/api/empresas',         [EmpresaController::class, 'store'],   $soloAdmin);
+$router->get('/api/empresas/{id}',     [EmpresaController::class, 'show'],    $adminODocente);
+$router->put('/api/empresas/{id}',     [EmpresaController::class, 'update'],  $soloAdmin);
+$router->delete('/api/empresas/{id}',  [EmpresaController::class, 'destroy'], $soloAdmin);
+
+// Supervisores (anidados en empresa + ruta plana para editar/borrar).
+$router->get('/api/empresas/{id}/supervisores',  [SupervisorController::class, 'index'],   $adminODocente);
+$router->post('/api/empresas/{id}/supervisores', [SupervisorController::class, 'store'],   $soloAdmin);
+$router->put('/api/supervisores/{id}',           [SupervisorController::class, 'update'],  $soloAdmin);
+$router->delete('/api/supervisores/{id}',        [SupervisorController::class, 'destroy'], $soloAdmin);
 
 // Manejo global de excepciones.
 try {

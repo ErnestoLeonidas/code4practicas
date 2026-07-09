@@ -6,6 +6,7 @@ import CambiarPassword from '../views/CambiarPassword.vue'
 import RecuperarPassword from '../views/RecuperarPassword.vue'
 import RestablecerPassword from '../views/RestablecerPassword.vue'
 import Estudiantes from '../views/Estudiantes.vue'
+import Empresas from '../views/Empresas.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
@@ -14,6 +15,7 @@ const routes = [
   { path: '/restablecer', name: 'restablecer', component: RestablecerPassword, meta: { publico: true } },
   { path: '/', name: 'home', component: Home, meta: { requiereAuth: true } },
   { path: '/estudiantes', name: 'estudiantes', component: Estudiantes, meta: { requiereAuth: true } },
+  { path: '/empresas', name: 'empresas', component: Empresas, meta: { requiereAuth: true } },
   {
     path: '/usuarios',
     name: 'usuarios',

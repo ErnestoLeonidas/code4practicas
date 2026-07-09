@@ -111,6 +111,9 @@ Todas las rutas cuelgan de `/api`. Respuestas en JSON; los errores tienen la for
 | `POST` | `/api/usuarios/{id}/regenerar-password` | Regenera la contraseña de un usuario — **solo admin** |
 | `GET/POST/PUT/DELETE` | `/api/carreras` | Gestión de carreras — **solo admin** |
 | `GET/POST/PUT/DELETE` | `/api/estudiantes` | Gestión de estudiantes (docente ve solo los suyos) |
+| `GET/POST/PUT/DELETE` | `/api/empresas` | Gestión de empresas; GET incluye supervisores embebidos |
+| `GET/POST` | `/api/empresas/{id}/supervisores` | Supervisores de una empresa |
+| `PUT/DELETE` | `/api/supervisores/{id}` | Editar o desactivar un supervisor |
 
 La autenticación usa una cookie de sesión `pp_sesion` (`HttpOnly` + `SameSite=Lax`). El login solo admite correos de dominios institucionales (configurables en `config.php`) y aplica límite de intentos (5 por correo cada 15 minutos). Las cuentas las crea el admin: **la contraseña la genera el sistema** (se muestra una vez y, si hay SMTP, se envía por correo) y el usuario debe cambiarla en su primer ingreso. Las siguientes versiones (estudiantes, empresas, prácticas, seguimiento y notas) están descritas en `ROADMAP.md`.
 
