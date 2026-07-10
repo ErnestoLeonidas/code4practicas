@@ -182,6 +182,47 @@ final class Estudiante
     }
 
     /**
+     * @return array<int, array<int, scalar|null>>
+     */
+    public static function exportar(?int $docenteId = null): array
+    {
+        $filtros = [];
+        if ($docenteId !== null) {
+            $filtros['docente_id'] = $docenteId;
+        }
+
+        [$where, $bindings] = self::construirFiltros($filtros);
+
+        $sql = 'SELECT e.id, e.nombre, e.apellido, e.rut, e.correo_duoc, e.telefono,
+                       e.semestre_ingreso_practica, e.activo,
+                       c.nombre AS carrera_nombre,
+                       u.nombre AS docente_nombre, u.apellido AS docente_apellido
+                FROM pp_estudiantes e
+                LEFT JOIN pp_carreras c ON c.id = e.carrera_id
+                LEFT JOIN pp_usuarios u ON u.id = e.docente_id'
+              . $where
+              . ' ORDER BY e.apellido, e.nombre';
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($bindings);
+
+        return array_map(static function (array $fila): array {
+            return [
+                (int) $fila['id'],
+                $fila['nombre'],
+                $fila['apellido'],
+                $fila['rut'],
+                $fila['correo_duoc'],
+                $fila['telefono'],
+                $fila['carrera_nombre'],
+                $fila['semestre_ingreso_practica'],
+                trim((string) (($fila['docente_nombre'] ?? '') . ' ' . ($fila['docente_apellido'] ?? ''))),
+                (int) $fila['activo'] === 1 ? 'Si' : 'No',
+            ];
+        }, $stmt->fetchAll());
+    }
+
+    /**
      * Construye la cláusula WHERE y sus bindings a partir de los filtros.
      * Los filtros que aplican sobre columnas de la tabla principal usan alias "e.".
      *

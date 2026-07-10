@@ -267,10 +267,29 @@
   }
 
   function estadoEntrega(entrega) {
-    if (Number(entrega.entregado) === 1) return "Entregado";
-    if (entrega.fecha_limite && new Date(entrega.fecha_limite) < new Date())
-      return "Atrasado";
-    return "Pendiente";
+    const mapa = {
+      entregado: "Entregado",
+      atrasado: "Atrasado",
+      pendiente: "Pendiente",
+    };
+    return mapa[entrega.estado] || "Pendiente";
+  }
+
+  function claseEstadoEntrega(entrega) {
+    const mapa = {
+      entregado: "bg-emerald-100 text-emerald-700",
+      atrasado: "bg-rose-100 text-rose-700",
+      pendiente: "bg-slate-100 text-slate-700",
+    };
+    return mapa[entrega.estado] || "bg-slate-100 text-slate-700";
+  }
+
+  function exportarSeguimientoPractica() {
+    if (!practicas.practicaActual?.id) return;
+    window.open(
+      `/api/export/practicas/${practicas.practicaActual.id}/seguimiento`,
+      "_blank",
+    );
   }
 </script>
 
@@ -473,6 +492,12 @@
             >
               {{ estado }}
             </button>
+            <button
+              class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+              @click="exportarSeguimientoPractica"
+            >
+              Exportar seguimiento
+            </button>
           </div>
 
           <div
@@ -648,7 +673,8 @@
                     {{ etiquetaEntrega(entrega.tipo) }}
                   </p>
                   <span
-                    class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                    class="rounded-full px-2 py-1 text-xs font-semibold"
+                    :class="claseEstadoEntrega(entrega)"
                   >
                     {{ estadoEntrega(entrega) }}
                   </span>
@@ -656,6 +682,13 @@
                 <p class="mt-1 text-xs text-slate-500">
                   Fecha límite: {{ entrega.fecha_limite || "—" }}
                 </p>
+                <div
+                  v-if="entrega.atrasada"
+                  class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"
+                >
+                  Entrega atrasada. Sugerencia manual de nota:
+                  {{ entrega.sugerencia_nota || "1.0" }}.
+                </div>
                 <div class="mt-3 space-y-2">
                   <label class="flex items-center gap-2 text-xs text-slate-600">
                     <input

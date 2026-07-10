@@ -12,8 +12,10 @@ use App\Http\Response;
 use App\Http\Router;
 use App\Services\Auth;
 use App\Controllers\CarreraController;
+use App\Controllers\DashboardController;
 use App\Controllers\EmpresaController;
 use App\Controllers\EstudianteController;
+use App\Controllers\ExportController;
 use App\Controllers\HealthController;
 use App\Controllers\AuthController;
 use App\Controllers\PracticaController;
@@ -75,6 +77,11 @@ $router->post('/api/auth/restablecer', [RecuperarController::class, 'restablecer
 // Gestión de usuarios (solo admin).
 $soloAdmin     = [ RoleMiddleware::permitir('admin') ];
 $adminODocente = [ RoleMiddleware::permitir('admin', 'docente') ];
+
+$router->get('/api/dashboard', [DashboardController::class, 'index'], $adminODocente);
+$router->get('/api/export/estudiantes', [ExportController::class, 'estudiantes'], $adminODocente);
+$router->get('/api/export/practicas', [ExportController::class, 'practicas'], $adminODocente);
+$router->get('/api/export/practicas/{id}/seguimiento', [ExportController::class, 'seguimientoPractica'], $adminODocente);
 
 $router->get('/api/usuarios',                          [UsuarioController::class, 'index'],   $soloAdmin);
 $router->post('/api/usuarios',                         [UsuarioController::class, 'store'],   $soloAdmin);

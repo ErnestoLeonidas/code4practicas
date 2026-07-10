@@ -3,6 +3,19 @@
 Todos los cambios relevantes de este proyecto se documentan aquí.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 
+## [0.9.0] — 2026-07-09
+
+### Añadido
+- Backend: endpoint `GET /api/dashboard` expone totales por estado, prácticas en riesgo recientes, entregas próximas a vencer, entregas atrasadas y distribución de prácticas por carrera y semestre.
+- Frontend: vista `Home` convertida en dashboard de inicio con tarjetas de estado, listas de atención y resúmenes por carrera/semestre.
+- Seguridad: archivos `.htaccess` de API y frontend incluyen `Referrer-Policy` además de cabeceras `X-Content-Type-Options` y `X-Frame-Options`.
+
+### Verificado
+- `GET /api/dashboard` retorna los datos de dashboard para admin y docente, con filtros de docente aplicados.
+- Build frontend exitoso con la nueva vista de dashboard.
+
+---
+
 ## [0.8.0] — 2026-07-09
 
 ### Añadido

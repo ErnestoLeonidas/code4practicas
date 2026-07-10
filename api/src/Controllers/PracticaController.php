@@ -203,9 +203,9 @@ final class PracticaController
 
         $cuerpo = Request::json();
         if (isset($cuerpo['nota']) && $cuerpo['nota'] !== '') {
-            $nota = (float) $cuerpo['nota'];
-            if ($nota < 1.0 || $nota > 7.0) {
-                throw new HttpException(422, 'datos_invalidos', 'La nota debe estar entre 1.0 y 7.0.');
+            $notaTexto = trim((string) $cuerpo['nota']);
+            if (!preg_match('/^(?:[1-6]\.\d|7\.0)$/', $notaTexto)) {
+                throw new HttpException(422, 'datos_invalidos', 'La nota debe estar entre 1.0 y 7.0 con un decimal.');
             }
         }
 
@@ -220,6 +220,7 @@ final class PracticaController
         Response::json([
             'entrega' => $entrega,
             'resumen_entregas' => Practica::resumenEntregas($id),
+            'practica' => self::publico(Practica::porId($id)),
         ]);
     }
 

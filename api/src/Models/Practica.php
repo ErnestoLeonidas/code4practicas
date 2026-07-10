@@ -321,7 +321,7 @@ final class Practica
              ORDER BY CASE tipo WHEN "avance_1" THEN 1 WHEN "avance_2" THEN 2 ELSE 3 END ASC'
         );
         $stmt->execute([$id]);
-        return $stmt->fetchAll();
+        return array_map([self::class, 'enriquecerEntrega'], $stmt->fetchAll());
     }
 
     /**
@@ -404,7 +404,10 @@ final class Practica
         $stmt->execute($bindings);
 
         self::registrarBitacora($id, $usuarioId, 'entrega_actualizada', 'Se actualizó la entrega ' . $tipo . '.');
-        return self::entregaPorTipo($id, $tipo);
+        $entrega = self::entregaPorTipo($id, $tipo);
+        $detalle = self::detalleBitacoraEntrega($entrega);
+        self::registrarBitacora($id, $usuarioId, 'nota_actualizada', 'Entrega ' . $tipo . ': ' . $detalle . '.');
+        return $entrega;
     }
 
     /**
@@ -420,7 +423,7 @@ final class Practica
         );
         $stmt->execute([$id, $tipo]);
         $fila = $stmt->fetch();
-        return is_array($fila) ? $fila : [];
+        return is_array($fila) ? self::enriquecerEntrega($fila) : [];
     }
 
     /**
@@ -454,6 +457,332 @@ final class Practica
         ];
 
         return in_array($hasta, $permitidas[$desde] ?? [], true);
+    }
+
+    /**
+     * @return array<int, array<int, scalar|null>>
+     */
+    public static function exportarPracticas(?int $docenteId = null): array
+    {
+        [$where, $bindings] = self::construirFiltros([], $docenteId);
+
+        $sql = 'SELECT p.id, p.semestre, p.estado, p.fecha_inicio, p.fecha_termino, p.horas_totales,
+                       e.nombre AS estudiante_nombre, e.apellido AS estudiante_apellido,
+                       emp.nombre AS empresa_nombre,
+                       s.nombre AS supervisor_nombre, s.apellido AS supervisor_apellido
+                FROM pp_practicas p
+                LEFT JOIN pp_estudiantes e ON e.id = p.estudiante_id
+                LEFT JOIN pp_empresas emp ON emp.id = p.empresa_id
+                LEFT JOIN pp_supervisores s ON s.id = p.supervisor_id'
+            . $where
+            . ' ORDER BY p.creado_en DESC';
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($bindings);
+        $practicas = $stmt->fetchAll();
+
+        return array_map(static function (array $fila): array {
+            $resumen = self::resumenEntregas((int) $fila['id']);
+            $entregas = self::entregasPorPractica((int) $fila['id']);
+            $notas = [
+                'avance_1' => null,
+                'avance_2' => null,
+                'informe_final' => null,
+            ];
+
+            foreach ($entregas as $entrega) {
+                $notas[$entrega['tipo']] = $entrega['nota'] ?? null;
+            }
+
+            return [
+                (int) $fila['id'],
+                trim((string) (($fila['estudiante_nombre'] ?? '') . ' ' . ($fila['estudiante_apellido'] ?? ''))),
+                $fila['empresa_nombre'],
+                trim((string) (($fila['supervisor_nombre'] ?? '') . ' ' . ($fila['supervisor_apellido'] ?? ''))),
+                $fila['semestre'],
+                $fila['estado'],
+                $fila['fecha_inicio'],
+                $fila['fecha_termino'],
+                $fila['horas_totales'],
+                $notas['avance_1'],
+                $notas['avance_2'],
+                $notas['informe_final'],
+                $resumen['nota_final_ponderada'],
+                $resumen['entregas_atrasadas'],
+            ];
+        }, $practicas);
+    }
+
+    /**
+     * @return array<int, array<int, scalar|null>>
+     */
+    public static function exportarSeguimientoPractica(int $id): array
+    {
+        return array_map(static function (array $semana) use ($id): array {
+            return [
+                $id,
+                (int) $semana['semana'],
+                $semana['foco'],
+                $semana['fecha_registro'],
+                (int) $semana['reunion_1a1'],
+                (int) $semana['orientaciones_claras'],
+                (int) $semana['retroalimentacion'],
+                (int) $semana['evidencia_registrada'],
+                (int) $semana['disponibilidad_comunicada'],
+                (int) $semana['ajuste_individual'],
+                (int) $semana['reflexion_guiada'],
+                (int) $semana['etica_valores'],
+                (int) $semana['puntaje'],
+                (int) $semana['porcentaje'],
+                $semana['riesgo'],
+                $semana['observaciones'],
+            ];
+        }, self::seguimientoPorPractica($id));
+    }
+
+    public static function docenteIdDePractica(int $id): ?int
+    {
+        $stmt = Database::connection()->prepare(
+            'SELECT e.docente_id
+             FROM pp_practicas p
+             JOIN pp_estudiantes e ON e.id = p.estudiante_id
+             WHERE p.id = ?
+             LIMIT 1'
+        );
+        $stmt->execute([$id]);
+        $docenteId = $stmt->fetchColumn();
+
+        return $docenteId === false || $docenteId === null ? null : (int) $docenteId;
+    }
+
+    public static function dashboardTotalesPorEstado(?int $docenteId = null): array
+    {
+        $where = '';
+        $bindings = [];
+        if ($docenteId !== null) {
+            $where = ' WHERE e.docente_id = ?';
+            $bindings[] = $docenteId;
+        }
+
+        $stmt = Database::connection()->prepare(
+            'SELECT p.estado, COUNT(*) AS total
+             FROM pp_practicas p
+             LEFT JOIN pp_estudiantes e ON e.id = p.estudiante_id'
+            . $where . '
+             GROUP BY p.estado'
+        );
+        $stmt->execute($bindings);
+
+        $totales = [
+            'pendiente' => 0,
+            'en_curso' => 0,
+            'avance_1' => 0,
+            'avance_2' => 0,
+            'informe_final' => 0,
+            'aprobada' => 0,
+            'reprobada' => 0,
+            'abandonada' => 0,
+        ];
+
+        foreach ($stmt->fetchAll() as $fila) {
+            $estado = $fila['estado'];
+            $totales[$estado] = (int) $fila['total'];
+        }
+
+        return $totales;
+    }
+
+    public static function dashboardPracticasEnRiesgo(int $dias, ?int $docenteId = null): array
+    {
+        $fechaLimite = (new DateTimeImmutable('today'))->modify("-{$dias} days")->format('Y-m-d');
+        $where = 'ss.fecha_registro IS NOT NULL AND ss.fecha_registro >= ?';
+        $bindings = [$fechaLimite];
+
+        if ($docenteId !== null) {
+            $where .= ' AND e.docente_id = ?';
+            $bindings[] = $docenteId;
+        }
+
+        $stmt = Database::connection()->prepare(
+            'SELECT p.id, p.estado, p.semestre,
+                    e.nombre AS estudiante_nombre, e.apellido AS estudiante_apellido,
+                    emp.nombre AS empresa_nombre, ss.semana, ss.fecha_registro,
+                    COALESCE(ss.reunion_1a1, 0) + COALESCE(ss.orientaciones_claras, 0) +
+                    COALESCE(ss.retroalimentacion, 0) + COALESCE(ss.evidencia_registrada, 0) +
+                    COALESCE(ss.disponibilidad_comunicada, 0) + COALESCE(ss.ajuste_individual, 0) +
+                    COALESCE(ss.reflexion_guiada, 0) + COALESCE(ss.etica_valores, 0) AS puntaje
+             FROM pp_seguimiento_semanal ss
+             JOIN pp_practicas p ON p.id = ss.practica_id
+             LEFT JOIN pp_estudiantes e ON e.id = p.estudiante_id
+             LEFT JOIN pp_empresas emp ON emp.id = p.empresa_id
+             WHERE ' . $where . '
+               AND (COALESCE(ss.reunion_1a1, 0) + COALESCE(ss.orientaciones_claras, 0) +
+                    COALESCE(ss.retroalimentacion, 0) + COALESCE(ss.evidencia_registrada, 0) +
+                    COALESCE(ss.disponibilidad_comunicada, 0) + COALESCE(ss.ajuste_individual, 0) +
+                    COALESCE(ss.reflexion_guiada, 0) + COALESCE(ss.etica_valores, 0)) < 5
+             ORDER BY ss.fecha_registro DESC
+             LIMIT 20'
+        );
+        $stmt->execute($bindings);
+
+        $filas = $stmt->fetchAll();
+        $vistas = [];
+        foreach ($filas as $fila) {
+            $id = (int) $fila['id'];
+            if (isset($vistas[$id])) {
+                continue;
+            }
+            $vistas[$id] = [
+                'id' => $id,
+                'estado' => $fila['estado'],
+                'semestre' => $fila['semestre'],
+                'estudiante_nombre' => $fila['estudiante_nombre'],
+                'estudiante_apellido' => $fila['estudiante_apellido'],
+                'empresa_nombre' => $fila['empresa_nombre'],
+                'semana' => (int) $fila['semana'],
+                'fecha_registro' => $fila['fecha_registro'],
+                'porcentaje' => (int) round((float) $fila['puntaje'] / 8 * 100),
+                'riesgo' => 'alto',
+            ];
+            if (count($vistas) >= 5) {
+                break;
+            }
+        }
+
+        return array_values($vistas);
+    }
+
+    public static function dashboardEntregasProximas(int $dias, ?int $docenteId = null): array
+    {
+        $hoy = new DateTimeImmutable('today');
+        $fechaHoy = $hoy->format('Y-m-d');
+        $fechaLimiteProxima = $hoy->modify("+{$dias} days")->format('Y-m-d');
+
+        $condiciones = ['ent.entregado = 0', 'ent.fecha_limite IS NOT NULL', "ent.fecha_limite <> ''", 'ent.fecha_limite >= ?', 'ent.fecha_limite <= ?'];
+        $bindings = [$fechaHoy, $fechaLimiteProxima];
+
+        if ($docenteId !== null) {
+            array_unshift($condiciones, 'e.docente_id = ?');
+            array_unshift($bindings, $docenteId);
+        }
+
+        $sql = 'SELECT ent.id, ent.practica_id, ent.tipo, ent.fecha_limite, p.semestre,
+                    e.nombre AS estudiante_nombre, e.apellido AS estudiante_apellido,
+                    emp.nombre AS empresa_nombre
+             FROM pp_entregas ent
+             JOIN pp_practicas p ON p.id = ent.practica_id
+             LEFT JOIN pp_estudiantes e ON e.id = p.estudiante_id
+             LEFT JOIN pp_empresas emp ON emp.id = p.empresa_id
+             WHERE ' . implode(' AND ', $condiciones) . '
+             ORDER BY ent.fecha_limite ASC
+             LIMIT 5';
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($bindings);
+
+        return array_map([self::class, 'normalizarEntregaDashboard'], $stmt->fetchAll());
+    }
+
+    public static function dashboardEntregasAtrasadas(?int $docenteId = null): array
+    {
+        $hoy = new DateTimeImmutable('today');
+        $fechaHoy = $hoy->format('Y-m-d');
+
+        $condiciones = ['ent.entregado = 0', 'ent.fecha_limite IS NOT NULL', "ent.fecha_limite <> ''", 'ent.fecha_limite < ?'];
+        $bindings = [$fechaHoy];
+
+        if ($docenteId !== null) {
+            array_unshift($condiciones, 'e.docente_id = ?');
+            array_unshift($bindings, $docenteId);
+        }
+
+        $sql = 'SELECT ent.id, ent.practica_id, ent.tipo, ent.fecha_limite, p.semestre,
+                    e.nombre AS estudiante_nombre, e.apellido AS estudiante_apellido,
+                    emp.nombre AS empresa_nombre
+             FROM pp_entregas ent
+             JOIN pp_practicas p ON p.id = ent.practica_id
+             LEFT JOIN pp_estudiantes e ON e.id = p.estudiante_id
+             LEFT JOIN pp_empresas emp ON emp.id = p.empresa_id
+             WHERE ' . implode(' AND ', $condiciones) . '
+             ORDER BY ent.fecha_limite ASC
+             LIMIT 5';
+
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($bindings);
+
+        return array_map([self::class, 'normalizarEntregaDashboard'], $stmt->fetchAll());
+    }
+
+    public static function dashboardDistribucionPorCarrera(?int $docenteId = null): array
+    {
+        $where = '';
+        $bindings = [];
+        if ($docenteId !== null) {
+            $where = ' WHERE e.docente_id = ?';
+            $bindings[] = $docenteId;
+        }
+
+        $stmt = Database::connection()->prepare(
+            'SELECT c.nombre AS carrera, COUNT(*) AS total
+             FROM pp_practicas p
+             JOIN pp_estudiantes e ON e.id = p.estudiante_id
+             JOIN pp_carreras c ON c.id = e.carrera_id'
+             . $where . '
+             GROUP BY c.nombre
+             ORDER BY total DESC, c.nombre ASC'
+        );
+        $stmt->execute($bindings);
+
+        return array_map(static function (array $fila): array {
+            return [
+                'carrera' => $fila['carrera'],
+                'total' => (int) $fila['total'],
+            ];
+        }, $stmt->fetchAll());
+    }
+
+    public static function dashboardDistribucionPorSemestre(?int $docenteId = null): array
+    {
+        $where = '';
+        $bindings = [];
+        if ($docenteId !== null) {
+            $where = ' WHERE e.docente_id = ?';
+            $bindings[] = $docenteId;
+        }
+
+        $stmt = Database::connection()->prepare(
+            'SELECT p.semestre, COUNT(*) AS total
+             FROM pp_practicas p
+             JOIN pp_estudiantes e ON e.id = p.estudiante_id'
+             . $where . '
+             GROUP BY p.semestre
+             ORDER BY p.semestre DESC'
+        );
+        $stmt->execute($bindings);
+
+        return array_map(static function (array $fila): array {
+            return [
+                'semestre' => $fila['semestre'],
+                'total' => (int) $fila['total'],
+            ];
+        }, $stmt->fetchAll());
+    }
+
+    /**
+     * @param array<string, mixed> $fila
+     */
+    private static function normalizarEntregaDashboard(array $fila): array
+    {
+        return [
+            'id' => (int) $fila['id'],
+            'practica_id' => (int) $fila['practica_id'],
+            'tipo' => $fila['tipo'],
+            'fecha_limite' => $fila['fecha_limite'],
+            'semestre' => $fila['semestre'],
+            'estudiante_nombre' => $fila['estudiante_nombre'],
+            'estudiante_apellido' => $fila['estudiante_apellido'],
+            'empresa_nombre' => $fila['empresa_nombre'],
+        ];
     }
 
     /**
@@ -537,6 +866,54 @@ final class Practica
         $nota = (float) $valor;
         $nota = max(1.0, min(7.0, $nota));
         return number_format($nota, 1, '.', '');
+    }
+
+    /**
+     * @param array<string, mixed> $entrega
+     * @return array<string, mixed>
+     */
+    private static function enriquecerEntrega(array $entrega): array
+    {
+        $hoy = new DateTimeImmutable('today');
+        $entregado = (int) ($entrega['entregado'] ?? 0) === 1;
+        $atrasada = false;
+
+        if (!$entregado && !empty($entrega['fecha_limite'])) {
+            $atrasada = $hoy > new DateTimeImmutable((string) $entrega['fecha_limite']);
+        }
+
+        $entrega['estado'] = $entregado ? 'entregado' : ($atrasada ? 'atrasado' : 'pendiente');
+        $entrega['atrasada'] = $atrasada;
+        $entrega['sugerencia_nota'] = $atrasada ? '1.0' : null;
+
+        if ($entrega['nota'] !== null && $entrega['nota'] !== '') {
+            $entrega['nota'] = self::normalizarNota((string) $entrega['nota']);
+        }
+
+        return $entrega;
+    }
+
+    /**
+     * @param array<string, mixed> $entrega
+     */
+    private static function detalleBitacoraEntrega(array $entrega): string
+    {
+        $partes = [];
+        $partes[] = 'estado ' . ($entrega['estado'] ?? 'pendiente');
+
+        if (!empty($entrega['fecha_entrega'])) {
+            $partes[] = 'fecha ' . $entrega['fecha_entrega'];
+        }
+
+        if ($entrega['nota'] !== null && $entrega['nota'] !== '') {
+            $partes[] = 'nota ' . $entrega['nota'];
+        }
+
+        if (!empty($entrega['retroalimentacion'])) {
+            $partes[] = 'con retroalimentacion';
+        }
+
+        return implode(', ', $partes);
     }
 
     private static function registrarBitacora(int $practicaId, ?int $usuarioId, string $evento, string $detalle): void

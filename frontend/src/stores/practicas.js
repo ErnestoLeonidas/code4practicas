@@ -89,8 +89,14 @@ export const usePracticasStore = defineStore('practicas', {
         if (index >= 0) {
           entregas[index] = { ...entregas[index], ...data.entrega }
         }
-        this.practicaActual = { ...this.practicaActual, entregas, resumen_entregas: data.resumen_entregas }
+        this.practicaActual = {
+          ...this.practicaActual,
+          ...data.practica,
+          entregas,
+          resumen_entregas: data.resumen_entregas,
+        }
       }
+      await this.cargar()
       return data
     },
   },
