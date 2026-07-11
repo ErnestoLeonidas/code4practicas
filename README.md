@@ -126,7 +126,7 @@ El código de acceso a datos es agnóstico de driver (se elige en `config.php`),
 
 ## Despliegue (hosting compartido)
 
-Resumen (guía detallada en `docs/deploy.md`, a partir de v1.0.0):
+Resumen (guía detallada en [`docs/deploy.md`](docs/deploy.md)):
 
 1. `npm run build --prefix frontend` y sube el contenido de `frontend/dist/` a `/public_html/`.
 2. Sube `api/` (incluyendo `vendor/` ya instalado) a `/public_html/api/`.

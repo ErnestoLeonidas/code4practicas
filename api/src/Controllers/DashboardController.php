@@ -4,7 +4,7 @@ namespace App\Controllers;
 
 use App\Http\Response;
 use App\Models\Practica;
-use App.Services.Auth;
+use App\Services\Auth;
 
 final class DashboardController
 {

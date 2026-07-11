@@ -7,6 +7,12 @@
     # Base de la carpeta api/ dentro del dominio.
     RewriteBase /api/
 
+    # Producción: forzar HTTPS también en accesos directos a /api.
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)$ [NC]
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
     # No reescribir archivos o directorios que existen físicamente.
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d

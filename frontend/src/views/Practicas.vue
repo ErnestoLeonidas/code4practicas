@@ -43,6 +43,33 @@
     Math.max(1, Math.ceil(practicas.total / practicas.perPage)),
   );
 
+  const semanaActualRapida = computed(() => {
+    const practica = practicas.practicaActual;
+    if (!practica || !Array.isArray(practica.seguimiento)) return null;
+
+    if (!practica.fecha_inicio) {
+      return practica.seguimiento[0] || null;
+    }
+
+    const inicio = new Date(`${practica.fecha_inicio}T00:00:00`);
+    if (Number.isNaN(inicio.getTime())) {
+      return practica.seguimiento[0] || null;
+    }
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const diffDias = Math.floor((hoy - inicio) / 86400000);
+    const semanaEstimada = Math.min(12, Math.max(1, Math.floor(diffDias / 7) + 1));
+
+    return (
+      practica.seguimiento.find(
+        (semana) => Number(semana.semana) === semanaEstimada,
+      ) ||
+      practica.seguimiento[0] ||
+      null
+    );
+  });
+
   onMounted(async () => {
     practicas.cargar();
     await cargarCatalogos();
@@ -291,6 +318,11 @@
       "_blank",
     );
   }
+
+  function nombreBitacora(item) {
+    const nombre = `${item.usuario_nombre || ""} ${item.usuario_apellido || ""}`.trim();
+    return nombre || "Sistema";
+  }
 </script>
 
 <template>
@@ -498,6 +530,63 @@
             >
               Exportar seguimiento
             </button>
+          </div>
+
+          <div
+            v-if="semanaActualRapida"
+            class="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4"
+          >
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">
+                  Checklist de hoy
+                </h4>
+                <p class="text-xs text-slate-500">
+                  Registro rápido para la semana {{ semanaActualRapida.semana }}.
+                </p>
+              </div>
+              <button
+                class="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                :disabled="guardandoSeguimiento"
+                @click="guardarSeguimiento(semanaActualRapida)"
+              >
+                {{ guardandoSeguimiento ? "Guardando…" : "Guardar rápido" }}
+              </button>
+            </div>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+              <label
+                v-for="item in itemsChecklist"
+                :key="`hoy-${item.key}`"
+                class="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-600"
+              >
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-slate-300"
+                  :checked="Number(semanaActualRapida[item.key]) === 1"
+                  @change="
+                    toggleItem(
+                      semanaActualRapida,
+                      item.key,
+                      $event.target.checked,
+                    )
+                  "
+                />
+                <span>{{ item.label }}</span>
+              </label>
+            </div>
+            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                v-model="semanaActualRapida.fecha_registro"
+                type="date"
+                class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+              />
+              <textarea
+                v-model="semanaActualRapida.observaciones"
+                rows="2"
+                placeholder="Observaciones rápidas"
+                class="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+              />
+            </div>
           </div>
 
           <div
@@ -729,6 +818,42 @@
                     {{ guardandoEntrega ? "Guardando…" : "Guardar entrega" }}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="practicas.practicaActual?.bitacora?.length"
+            class="mt-5 border-t border-slate-200 pt-4"
+          >
+            <div class="mb-3">
+              <h4 class="text-sm font-semibold text-slate-900">
+                Línea de tiempo
+              </h4>
+              <p class="text-xs text-slate-500">
+                Estados y eventos relevantes registrados en la práctica.
+              </p>
+            </div>
+            <div class="space-y-3">
+              <div
+                v-for="item in practicas.practicaActual.bitacora"
+                :key="item.id"
+                class="rounded-lg border border-slate-200 p-3"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <p class="text-sm font-semibold text-slate-900">
+                    {{ item.evento }}
+                  </p>
+                  <span class="text-xs text-slate-500">
+                    {{ item.creado_en }}
+                  </span>
+                </div>
+                <p class="mt-1 text-sm text-slate-600">
+                  {{ item.detalle || "Sin detalle adicional." }}
+                </p>
+                <p class="mt-2 text-xs text-slate-500">
+                  Registrado por {{ nombreBitacora(item) }}
+                </p>
               </div>
             </div>
           </div>
